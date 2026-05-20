@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: wins-timbangan
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm run render-build
+    startCommand: npm run render-start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_DIR
+        value: /data
+      - key: JWT_SECRET
+        generateValue: true
+    disk:
+      name: wins-data
+      mountPath: /data
+      sizeGB: 1
+    healthCheckPath: /api/health

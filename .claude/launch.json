@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wins-frontend",
+      "runtimeExecutable": "/opt/homebrew/bin/npm",
+      "runtimeArgs": ["run", "dev", "--", "--host"],
+      "cwd": "/Users/ariestotopayung/wins-timbangan/frontend",
+      "port": 5173
+    }
+  ]
+}

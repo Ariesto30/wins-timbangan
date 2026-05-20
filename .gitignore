@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+frontend/dist/
+backend/dist/
+
+# Database (akan dibuat ulang di production dengan persistent disk)
+backend/wins_timbangan.db
+backend/wins_timbangan.db-shm
+backend/wins_timbangan.db-wal
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Misc
+.cache/
+.parcel-cache/
