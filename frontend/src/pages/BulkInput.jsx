@@ -137,6 +137,7 @@ export default function BulkInput() {
   const [errors, setErrors] = useState([])
   const [result, setResult] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [saveProgress, setSaveProgress] = useState(null) // { done, total, batch, totalBatch }
   const [showHelp, setShowHelp] = useState(true)
   const [relasiList, setRelasiList] = useState([])
   const scrollRef = useRef(null)
@@ -290,24 +291,40 @@ export default function BulkInput() {
     const valid = rows.filter(r => Object.values(r).some(v => v !== ''))
     if (valid.length === 0) { setErrors([{ row: 0, error: 'Tidak ada data untuk disimpan' }]); return }
 
+    // Kirim bertahap 300 baris per request — menghindari batas proxy Render.com
+    const BATCH_SIZE = 300
+    const chunks = []
+    for (let i = 0; i < valid.length; i += BATCH_SIZE) {
+      chunks.push(valid.slice(i, i + BATCH_SIZE))
+    }
+
     setSaving(true)
+    setSaveProgress({ done: 0, total: valid.length, batch: 0, totalBatch: chunks.length })
+    setErrors([])
+    setResult(null)
+
+    let totalOk = 0
+    const allErrors = []
+
     try {
-      const { data } = await api.post('/timbangan/bulk', { rows: valid })
-      setResult({ saved: data.ok, total: data.total, errors: data.errors })
-      if (data.ok > 0 && data.errors?.length === 0) {
-        setTimeout(() => navigate('/data'), 1500)
-      } else if (data.ok > 0 && data.errors?.length > 0) {
-        // Sebagian berhasil
-        setErrors(data.errors)
-      } else if (data.errors?.length > 0) {
-        setErrors(data.errors)
+      for (let ci = 0; ci < chunks.length; ci++) {
+        setSaveProgress({ done: totalOk, total: valid.length, batch: ci + 1, totalBatch: chunks.length })
+        const { data } = await api.post('/timbangan/bulk', { rows: chunks[ci] })
+        totalOk += data.ok || 0
+        if (data.errors?.length) {
+          // Offset nomor baris agar sesuai posisi di grid
+          data.errors.forEach(e => allErrors.push({ ...e, row: e.row + ci * BATCH_SIZE }))
+        }
       }
+
+      setResult({ saved: totalOk, total: valid.length, errors: allErrors })
+      if (allErrors.length > 0) setErrors(allErrors)
+      if (totalOk > 0) setTimeout(() => navigate('/data'), allErrors.length ? 3000 : 1500)
+
     } catch (e) {
       const msg = e.response?.data?.error || e.message || 'Gagal menyimpan'
       const status = e.response?.status
-      const hint = status === 413
-        ? 'Data terlalu besar — coba paste bertahap (maks 500 baris per kali)'
-        : status === 401 || status === 403
+      const hint = status === 401 || status === 403
         ? 'Sesi login habis — silakan login ulang'
         : status >= 500
         ? `Server error: ${msg}`
@@ -315,6 +332,7 @@ export default function BulkInput() {
       setErrors([{ row: 0, error: hint }])
     } finally {
       setSaving(false)
+      setSaveProgress(null)
     }
   }
 
@@ -396,11 +414,13 @@ export default function BulkInput() {
 
       {/* Actions */}
       <div className="flex flex-wrap items-center gap-2">
-        <button onClick={save} disabled={saving || validCount === 0} className="btn-primary flex items-center gap-2 min-w-[160px] justify-center">
+        <button onClick={save} disabled={saving || validCount === 0} className="btn-primary flex items-center gap-2 min-w-[180px] justify-center">
           {saving ? (
             <>
-              <svg className="animate-spin" width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" strokeOpacity={0.3}/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
-              Menyimpan {validCount} baris…
+              <svg className="animate-spin flex-shrink-0" width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10" strokeOpacity={0.3}/><path d="M12 2a10 10 0 0 1 10 10"/></svg>
+              {saveProgress
+                ? `Batch ${saveProgress.batch}/${saveProgress.totalBatch}…`
+                : 'Menyimpan…'}
             </>
           ) : (
             <><Save size={15} /> Simpan Semua ({validCount})</>
@@ -417,6 +437,22 @@ export default function BulkInput() {
           <Trash2 size={13} /> Bersihkan Semua
         </button>
       </div>
+
+      {/* Progress bar saat batch upload */}
+      {saving && saveProgress && (
+        <div className="card bg-purple-50 border-purple-200 py-3">
+          <div className="flex items-center justify-between text-xs text-purple-700 mb-2">
+            <span className="font-semibold">Mengunggah data ke server…</span>
+            <span>Batch {saveProgress.batch} dari {saveProgress.totalBatch} · {saveProgress.done} baris tersimpan</span>
+          </div>
+          <div className="h-2 bg-purple-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-purple-500 rounded-full transition-all duration-300"
+              style={{ width: `${Math.round((saveProgress.batch / saveProgress.totalBatch) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Grid */}
       <div className="card p-0 overflow-hidden">
