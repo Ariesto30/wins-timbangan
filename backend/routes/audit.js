@@ -1794,4 +1794,102 @@ router.post('/direction/fix', requireRole('admin', 'manajer'), async (req, res) 
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ─── KONSISTENSI TRUK — klasifikasi kelas truk berbasis plat (median netto) ─── */
+function classifyByNetto(median) {
+  if (median >= 7000 && median <= 11500) return '6 Roda';
+  if (median >= 12000 && median <= 17500) return '10 Roda';
+  if (median >= 25000 && median <= 33000) return '12 Roda';
+  return 'AMBIGU'; // celah 11.5-12k atau 17.5-25k atau >33k → tidak auto-koreksi
+}
+const medianOf = arr => { if (!arr.length) return 0; const s = [...arr].sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+router.get('/truck-class', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'AND ' + where.join(' AND ') : '';
+    const rows = await db.all(`
+      SELECT id, no_seri, no_polisi, truck_type, produk, berat_netto_wins as netto, tanggal_masuk
+      FROM timbangan
+      WHERE no_polisi IS NOT NULL AND no_polisi != '' AND berat_netto_wins > 0 ${w}
+      ORDER BY no_polisi, tanggal_masuk
+    `, params);
+
+    // Group per plat
+    const plates = {};
+    rows.forEach(r => {
+      r.netto = Number(r.netto);
+      if (!plates[r.no_polisi]) plates[r.no_polisi] = { no_polisi: r.no_polisi, trips: [], nettos: [], labels: {} };
+      const p = plates[r.no_polisi];
+      p.trips.push(r); p.nettos.push(r.netto);
+      if (r.truck_type) p.labels[r.truck_type] = (p.labels[r.truck_type] || 0) + 1;
+    });
+
+    const plateSummary = [];
+    const mismatchTrips = [];
+    Object.values(plates).forEach(p => {
+      if (p.trips.length < 2) return;
+      const med = medianOf(p.nettos);
+      const derived = classifyByNetto(med);
+      const labelList = Object.entries(p.labels).sort((a, b) => b[1] - a[1]); // [label,count]
+      const inconsistent = labelList.length > 1;
+      // Trip yang labelnya beda dari kelas turunan (hanya jika derived jelas)
+      let mismatchCount = 0;
+      if (derived !== 'AMBIGU') {
+        p.trips.forEach(t => {
+          if (t.truck_type && t.truck_type !== derived) {
+            mismatchCount++;
+            mismatchTrips.push({
+              id: t.id, no_seri: t.no_seri, no_polisi: t.no_polisi, produk: t.produk,
+              netto: t.netto, tanggal_masuk: t.tanggal_masuk,
+              label_input: t.truck_type, kelas_asli: derived,
+            });
+          }
+        });
+      }
+      plateSummary.push({
+        no_polisi: p.no_polisi, trip: p.trips.length, median: Math.round(med),
+        kelas_asli: derived, inconsistent,
+        labels: labelList.map(([k, v]) => `${k}×${v}`).join(', '),
+        mismatch: mismatchCount,
+      });
+    });
+
+    plateSummary.sort((a, b) => b.mismatch - a.mismatch || (b.inconsistent - a.inconsistent));
+    mismatchTrips.sort((a, b) => a.no_polisi.localeCompare(b.no_polisi));
+
+    const summary = {
+      plat_total: plateSummary.length,
+      plat_inconsistent: plateSummary.filter(p => p.inconsistent).length,
+      plat_ambigu: plateSummary.filter(p => p.kelas_asli === 'AMBIGU').length,
+      mismatch_trips: mismatchTrips.length,
+    };
+    res.json({
+      summary,
+      plates: plateSummary.filter(p => p.mismatch > 0 || p.inconsistent || p.kelas_asli === 'AMBIGU').slice(0, 100),
+      mismatchTrips: mismatchTrips.slice(0, 300),
+      note: 'Kelas asli = klasifikasi dari median netto historis plat. AMBIGU (netto 17.5-25k dll) tidak disarankan auto-koreksi — kemungkinan sub-kelas truk / band perlu ditinjau.',
+    });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* POST /truck-class/fix — set truck_type sesuai kelas asli untuk daftar id */
+router.post('/truck-class/fix', requireRole('admin', 'manajer'), async (req, res) => {
+  try {
+    const items = Array.isArray(req.body.items) ? req.body.items : [];
+    const valid = items.filter(it => Number.isInteger(it.id) && ['6 Roda', '10 Roda', '12 Roda'].includes(it.truck_type));
+    if (valid.length === 0) return res.status(400).json({ error: 'Tidak ada koreksi valid' });
+    let fixed = 0;
+    const client = await db.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const it of valid) {
+        const r = await client.query(`UPDATE timbangan SET truck_type=$1, updated_at=NOW() WHERE id=$2`, [it.truck_type, it.id]);
+        fixed += r.rowCount;
+      }
+      await client.query('COMMIT');
+    } catch (e) { await client.query('ROLLBACK'); throw e; } finally { client.release(); }
+    res.json({ message: `${fixed} label truk dikoreksi`, fixed });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

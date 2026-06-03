@@ -1031,6 +1031,7 @@ function AdvancedTab({ tahun, bulan }) {
   const [sub, setSub] = useState('round')
   const SUBS = [
     { id:'direction',label:'Konsistensi Arah',   icon: AlertOctagon, desc:'Arah timbang vs jenis produk' },
+    { id:'truckclass',label:'Konsistensi Truk',  icon: Truck,        desc:'Label jenis truk vs kelas asli (netto)' },
     { id:'round',    label:'Round-Number Bias',  icon: Hash,         desc:'Netto dibulatkan 000/500/00' },
     { id:'sequence', label:'Sequence Gap',       icon: Activity,     desc:'No. Seri yang hilang' },
     { id:'weekend',  label:'Weekend Spike',      icon: Clock,        desc:'Trip akhir pekan tak wajar' },
@@ -1066,6 +1067,7 @@ function AdvancedTab({ tahun, bulan }) {
       </div>
 
       {sub==='direction'  && <DirectionAudit tahun={tahun} bulan={bulan} />}
+      {sub==='truckclass' && <TruckClassAudit tahun={tahun} bulan={bulan} />}
       {sub==='round'      && <RoundNumberAudit tahun={tahun} bulan={bulan} />}
       {sub==='sequence'   && <SequenceGapAudit />}
       {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulan={bulan} />}
@@ -1444,6 +1446,96 @@ function DirectionAudit({ tahun, bulan }) {
           </table>
         </div>}
       </Section>
+    </div>
+  )
+}
+
+/* Konsistensi Truk — kelas truk berbasis plat */
+function TruckClassAudit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  const [sel, setSel] = useState({})
+  const [fixing, setFixing] = useState(false)
+  function load() { setD(null); setSel({}); api.get('/audit/truck-class', { params:{ tahun, bulan } }).then(r => setD(r.data)).catch(e => setD({ error: e.response?.data?.error || e.message })) }
+  useEffect(() => { load() }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  if (d.error) return <div className="card bg-red-50 border-red-200 text-center py-8"><div className="text-red-600 font-semibold">Gagal memuat</div><div className="text-xs text-gray-500">{d.error}</div></div>
+  const s = d.summary
+  const mm = d.mismatchTrips
+  const allSel = mm.length > 0 && mm.every(t => sel[t.id])
+  const selCount = Object.values(sel).filter(Boolean).length
+  function toggleAll() { if (allSel) setSel({}); else setSel(Object.fromEntries(mm.map(t => [t.id, true]))) }
+
+  async function fix() {
+    const items = mm.filter(t => sel[t.id]).map(t => ({ id: t.id, truck_type: t.kelas_asli }))
+    if (items.length === 0) return
+    if (!confirm(`Koreksi label ${items.length} trip ke kelas asli (berbasis median netto plat)?`)) return
+    setFixing(true)
+    try { const r = await api.post('/audit/truck-class/fix', { items }); alert(r.data.message); load() }
+    catch (e) { alert(e.response?.data?.error || 'Gagal') } finally { setFixing(false) }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card bg-blue-50 border-blue-200 flex items-start gap-3">
+        <Truck className="text-blue-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-blue-700">
+          <strong>Konsistensi Truk</strong> — Sistem percaya field jenis truk yang diketik operator. <strong>Kelas asli</strong> dihitung dari median netto historis tiap plat (6R ±9.5t, 10R ±14t, 12R ±28t). Trip yang labelnya beda dari kelas asli = kemungkinan salah ketik. <em>{d.note}</em>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiMini label="Plat Dianalisis" value={s.plat_total} />
+        <KpiMini label="Label Tidak Konsisten" value={s.plat_inconsistent} accent={s.plat_inconsistent > 0 ? 'orange' : 'green'} />
+        <KpiMini label="Trip Salah Label" value={s.mismatch_trips} accent={s.mismatch_trips > 0 ? 'red' : 'green'} />
+        <KpiMini label="Plat AMBIGU (band gap)" value={s.plat_ambigu} accent={s.plat_ambigu > 0 ? 'orange' : 'green'} />
+      </div>
+
+      <Section title="Ringkasan per plat" desc="Kelas asli dari median netto · label yang dipakai · jumlah trip salah-label">
+        {d.plates.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Semua label truk konsisten</div> :
+        <TableLite headers={['No. Polisi','Trip','Median Netto','Kelas Asli','Label Dipakai','Salah Label']} rows={d.plates.map(p => [
+          <span className="font-mono font-medium">{p.no_polisi}</span>, p.trip,
+          <span className="font-mono text-xs">{p.median?.toLocaleString('id-ID')}</span>,
+          p.kelas_asli === 'AMBIGU' ? <span className="badge-warning">AMBIGU</span> : <span className="badge-info">{p.kelas_asli}</span>,
+          <span className="text-xs text-gray-500">{p.labels}</span>,
+          p.mismatch > 0 ? <span className="font-bold text-red-600">{p.mismatch}</span> : <span className="text-gray-300">0</span>
+        ])} />}
+      </Section>
+
+      {mm.length > 0 && (
+        <>
+          <div className="card bg-amber-50 border-amber-200 flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs text-amber-700"><strong>{selCount}</strong> dari {mm.length} trip terpilih untuk koreksi label</span>
+            <div className="flex gap-2">
+              <button onClick={toggleAll} className="btn-secondary text-xs">{allSel ? 'Batal pilih semua' : 'Pilih semua'}</button>
+              <button onClick={fix} disabled={fixing || selCount === 0} className="btn-primary text-xs">{fixing ? 'Memperbaiki...' : `Koreksi ${selCount} label`}</button>
+            </div>
+          </div>
+
+          <Section title={`Detail trip salah-label (${mm.length})`} desc="Centang untuk koreksi ke kelas asli plat. Netto tidak berubah, hanya label jenis truk.">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead><tr className="border-b border-gray-200 bg-gray-50">
+                  <th className="table-header w-8"></th>
+                  {['Seri','Polisi','Produk','Netto','Label Sekarang','→ Kelas Asli'].map(h => <th key={h} className="table-header">{h}</th>)}
+                </tr></thead>
+                <tbody>
+                  {mm.map(t => (
+                    <tr key={t.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      <td className="table-cell"><input type="checkbox" checked={!!sel[t.id]} onChange={e => setSel(s => ({ ...s, [t.id]: e.target.checked }))} /></td>
+                      <td className="table-cell font-mono text-xs">{t.no_seri}</td>
+                      <td className="table-cell font-mono text-xs">{t.no_polisi}</td>
+                      <td className="table-cell"><span className="badge-neutral">{t.produk}</span></td>
+                      <td className="table-cell font-mono text-xs">{t.netto?.toLocaleString('id-ID')}</td>
+                      <td className="table-cell text-xs text-red-600 font-medium">{t.label_input}</td>
+                      <td className="table-cell text-xs"><span className="font-bold text-green-600">{t.kelas_asli}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        </>
+      )}
     </div>
   )
 }
