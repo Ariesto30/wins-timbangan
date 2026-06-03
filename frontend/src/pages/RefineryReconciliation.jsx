@@ -20,7 +20,7 @@ export default function RefineryReconciliation() {
   const [form, setForm] = useState(BLANK)
   const [saving, setSaving] = useState(false)
 
-  function loadList() { api.get('/refinery').then(r => setList(r.data)) }
+  function loadList() { api.get('/refinery').then(r => setList(r.data)).catch(e => alert('Gagal memuat periode: ' + (e.response?.data?.error || e.message))) }
   useEffect(() => { loadList() }, [])
   useEffect(() => {
     if (selId) api.get(`/refinery/${selId}`).then(r => setDetail(r.data))

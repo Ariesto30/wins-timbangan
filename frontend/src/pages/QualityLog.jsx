@@ -41,9 +41,21 @@ function QualityLogTab() {
   const [filterProduk, setFilterProduk] = useState('Semua')
   const [edit, setEdit] = useState(null)
 
-  function load() { api.get('/quality', { params: { produk: filterProduk } }).then(r => setData(r.data)) }
+  const [err, setErr] = useState(null)
+  function load() {
+    setErr(null)
+    api.get('/quality', { params: { produk: filterProduk } }).then(r => setData(r.data)).catch(e => setErr(e.response?.data?.error || e.message || 'Gagal memuat'))
+  }
   useEffect(() => { load() }, [filterProduk])
-  useEffect(() => { api.get('/tank').then(r => setTanks(r.data.tanks)) }, [])
+  useEffect(() => { api.get('/tank').then(r => setTanks(r.data.tanks)).catch(() => {}) }, [])
+
+  if (err) return (
+    <div className="card bg-red-50 border-red-200 text-center py-10">
+      <div className="text-red-600 font-semibold mb-1">Gagal memuat data</div>
+      <div className="text-xs text-gray-500 mb-4">{err}</div>
+      <button onClick={load} className="btn-primary">Coba Lagi</button>
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -178,7 +190,9 @@ function QualityForm({ rec, tanks, onClose, onSaved }) {
 function StabilityTab() {
   const [data, setData] = useState(null)
   const [detail, setDetail] = useState(null)
-  useEffect(() => { api.get('/quality/stability').then(r => setData(r.data)) }, [])
+  const [err, setErr] = useState(null)
+  useEffect(() => { api.get('/quality/stability').then(r => setData(r.data)).catch(e => setErr(e.response?.data?.error || e.message)) }, [])
+  if (err) return <div className="card bg-red-50 border-red-200 text-center py-8"><div className="text-red-600 font-semibold mb-1">Gagal memuat</div><div className="text-xs text-gray-500">{err}</div></div>
   if (!data) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = data.summary
   const badge = st => {

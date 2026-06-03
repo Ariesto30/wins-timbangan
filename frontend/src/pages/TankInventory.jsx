@@ -8,12 +8,17 @@ const fmt = v => Number(v || 0).toLocaleString('id-ID', { maximumFractionDigits:
 
 export default function TankInventory() {
   const [data, setData] = useState(null)
+  const [err, setErr] = useState(null)
   const [editTank, setEditTank] = useState(null) // {id?,...} for tank form
   const [moveTank, setMoveTank] = useState(null) // tank for movement panel
 
-  function load() { api.get('/tank').then(r => setData(r.data)) }
+  function load() {
+    setErr(null)
+    api.get('/tank').then(r => setData(r.data)).catch(e => setErr(e.response?.data?.error || e.message || 'Gagal memuat data tangki'))
+  }
   useEffect(() => { load() }, [])
 
+  if (err) return <LoadError msg={err} onRetry={load} />
   if (!data) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = data.summary
 
@@ -226,4 +231,15 @@ function Field({ label, children }) {
 function KpiBox({ label, value, color }) {
   const txt = color === 'red' ? 'text-red-600' : color === 'green' ? 'text-green-600' : color === 'sky' ? 'text-sky-600' : color === 'orange' ? 'text-orange-500' : 'text-gray-800'
   return <div className="card"><div className="text-xs text-gray-500">{label}</div><div className={`text-xl font-bold mt-1 ${txt}`}>{value}</div></div>
+}
+
+function LoadError({ msg, onRetry }) {
+  return (
+    <div className="card bg-red-50 border-red-200 text-center py-10">
+      <div className="text-red-600 font-semibold mb-1">Gagal memuat data</div>
+      <div className="text-xs text-gray-500 mb-4">{msg}</div>
+      <button onClick={onRetry} className="btn-primary">Coba Lagi</button>
+      <p className="text-[11px] text-gray-400 mt-3">Jika baru deploy, tunggu 1-2 menit lalu coba lagi.</p>
+    </div>
+  )
 }
