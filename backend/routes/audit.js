@@ -1540,4 +1540,198 @@ router.get('/throughput', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ─── A2. FIRST-LAST PAIR — truk masuk 2× hari sama dgn netto identik ─── */
+router.get('/same-day-pair', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'AND ' + where.join(' AND ') : '';
+    const tolNetto = parseInt(req.query.tol_netto) || 100; // toleransi netto (kg)
+
+    // Cari truk yang muncul >1× di tanggal sama dengan netto sangat mirip
+    const rows = await db.all(`
+      WITH samehari AS (
+        SELECT a.id as id_a, b.id as id_b, a.no_polisi, a.tanggal_masuk,
+          a.berat_netto_wins as netto_a, b.berat_netto_wins as netto_b,
+          a.relasi_nama as relasi_a, b.relasi_nama as relasi_b,
+          a.produk, a.jam_masuk as jam_a, b.jam_masuk as jam_b,
+          a.no_seri as seri_a, b.no_seri as seri_b,
+          ABS(a.berat_netto_wins - b.berat_netto_wins) as selisih
+        FROM timbangan a
+        JOIN timbangan b ON a.no_polisi = b.no_polisi
+          AND a.tanggal_masuk = b.tanggal_masuk
+          AND a.id < b.id
+          AND ABS(a.berat_netto_wins - b.berat_netto_wins) <= ${tolNetto}
+        WHERE a.no_polisi IS NOT NULL AND a.no_polisi != ''
+          AND a.berat_netto_wins > 0
+          ${w}
+      )
+      SELECT * FROM samehari ORDER BY selisih ASC, tanggal_masuk DESC LIMIT 100
+    `, params);
+
+    const trucks = new Set(rows.map(r => r.no_polisi));
+    res.json({
+      summary: { flagged: rows.length, trucks_affected: trucks.size, tol_netto: tolNetto },
+      flagged: rows,
+    });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ─── A6. BENFORD 2ND-DIGIT — distribusi digit kedua netto ─── */
+router.get('/benford-2nd', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+    const wAnd = w ? 'AND' : 'WHERE';
+
+    // Digit kedua dari netto (butuh angka >= 10)
+    const rows = await db.all(`
+      SELECT SUBSTRING(berat_netto_wins::text FROM 2 FOR 1)::int as d2, COUNT(*)::int as n
+      FROM timbangan ${w} ${wAnd} berat_netto_wins >= 10
+      GROUP BY d2 ORDER BY d2
+    `, params);
+
+    // Probabilitas Benford digit kedua (d=0..9)
+    const benford2 = [0.11968, 0.11389, 0.10882, 0.10433, 0.10031, 0.09668, 0.09337, 0.09035, 0.08757, 0.08500];
+    const total = rows.reduce((s, r) => s + r.n, 0) || 1;
+    const observed = Array(10).fill(0);
+    rows.forEach(r => { if (r.d2 >= 0 && r.d2 <= 9) observed[r.d2] = r.n; });
+
+    let chi2 = 0;
+    const dist = benford2.map((p, d) => {
+      const exp = p * total;
+      const obs = observed[d];
+      const contrib = exp > 0 ? (obs - exp) ** 2 / exp : 0;
+      chi2 += contrib;
+      return { digit: d, observed: obs, expected: +exp.toFixed(1), obs_pct: +(obs / total * 100).toFixed(2), exp_pct: +(p * 100).toFixed(2) };
+    });
+
+    // df = 9, alpha 0.05 → critical 16.92
+    const critical = 16.92;
+    const suspicious = chi2 > critical;
+
+    res.json({
+      total, chi2: +chi2.toFixed(2), critical, suspicious,
+      verdict: suspicious ? 'PERHATIAN' : 'NORMAL',
+      dist,
+      disclaimer: 'Data timbangan terikat kapasitas truk (bounded), sehingga uji Benford bisa false-positive. Gunakan sebagai indikator awal, bukan bukti.',
+    });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ─── A7. DRIVER-TRUCK MISMATCH — pasangan driver-truk tak biasa ─── */
+router.get('/driver-truck', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'AND ' + where.join(' AND ') : '';
+
+    const rows = await db.all(`
+      SELECT no_polisi, driver, COUNT(*)::int as trip
+      FROM timbangan
+      WHERE no_polisi IS NOT NULL AND no_polisi != ''
+        AND driver IS NOT NULL AND driver != ''
+        ${w}
+      GROUP BY no_polisi, driver
+    `, params);
+
+    // Per truk: total trip + driver dominan
+    const perTruck = {};
+    rows.forEach(r => {
+      perTruck[r.no_polisi] = perTruck[r.no_polisi] || { no_polisi: r.no_polisi, total: 0, drivers: [] };
+      perTruck[r.no_polisi].total += r.trip;
+      perTruck[r.no_polisi].drivers.push({ driver: r.driver, trip: r.trip });
+    });
+
+    // Truk dengan terlalu banyak driver berbeda (>=4) — bisa indikasi truk "umum"
+    const manyDrivers = Object.values(perTruck)
+      .filter(t => t.total >= 8 && t.drivers.length >= 4)
+      .map(t => ({ ...t, driver_count: t.drivers.length, drivers: t.drivers.sort((a, b) => b.trip - a.trip) }))
+      .sort((a, b) => b.driver_count - a.driver_count).slice(0, 20);
+
+    // Pasangan langka: driver yang hanya 1× di truk yang punya driver dominan jelas
+    const rareTrips = [];
+    Object.values(perTruck).forEach(t => {
+      if (t.total < 8) return;
+      const sorted = [...t.drivers].sort((a, b) => b.trip - a.trip);
+      const dominant = sorted[0];
+      if (dominant.trip / t.total < 0.5) return; // tidak ada dominan jelas
+      sorted.slice(1).forEach(d => {
+        if (d.trip / t.total < 0.1) {
+          rareTrips.push({ no_polisi: t.no_polisi, driver: d.driver, trip: d.trip, total: t.total, dominant: dominant.driver, dominant_trip: dominant.trip, pct: +(d.trip / t.total * 100).toFixed(1) });
+        }
+      });
+    });
+    rareTrips.sort((a, b) => a.pct - b.pct);
+
+    // Driver yang pakai banyak truk berbeda
+    const driverTrucks = {};
+    rows.forEach(r => {
+      driverTrucks[r.driver] = driverTrucks[r.driver] || { driver: r.driver, trucks: 0, total: 0 };
+      driverTrucks[r.driver].trucks++;
+      driverTrucks[r.driver].total += r.trip;
+    });
+    const manyTrucks = Object.values(driverTrucks).filter(d => d.trucks >= 4).sort((a, b) => b.trucks - a.trucks).slice(0, 20);
+
+    res.json({
+      summary: { trucks_many_drivers: manyDrivers.length, rare_pairs: rareTrips.length, drivers_many_trucks: manyTrucks.length },
+      manyDrivers, rareTrips: rareTrips.slice(0, 30), manyTrucks,
+    });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ─── A11. CONCENTRATION / COLLUSION INDICATOR ─── */
+router.get('/concentration', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'AND ' + where.join(' AND ') : '';
+
+    // Konsentrasi transportir → operator: berapa % trip 1 transportir lewat 1 operator
+    const rows = await db.all(`
+      SELECT transportir, penimbang, relasi_nama, COUNT(*)::int as trip,
+        SUM(berat_netto_wins)::bigint as netto
+      FROM timbangan
+      WHERE transportir IS NOT NULL AND transportir != ''
+        AND penimbang IS NOT NULL AND penimbang != ''
+        ${w}
+      GROUP BY transportir, penimbang, relasi_nama
+    `, params);
+
+    // Agregasi per transportir
+    const vendors = {};
+    rows.forEach(r => {
+      r.netto = Number(r.netto);
+      if (!vendors[r.transportir]) vendors[r.transportir] = { transportir: r.transportir, total: 0, combos: [] };
+      vendors[r.transportir].total += r.trip;
+      vendors[r.transportir].combos.push(r);
+    });
+
+    // Untuk tiap vendor: cari kombo (operator+relasi) dominan & hitung konsentrasi
+    const flagged = [];
+    Object.values(vendors).forEach(v => {
+      if (v.total < 10) return;
+      const top = v.combos.sort((a, b) => b.trip - a.trip)[0];
+      const conc = top.trip / v.total;
+      // operator diversity
+      const operators = new Set(v.combos.map(c => c.penimbang));
+      if (conc > 0.6 && operators.size <= 2) {
+        flagged.push({
+          transportir: v.transportir, total: v.total,
+          top_operator: top.penimbang, top_relasi: top.relasi_nama, top_trip: top.trip,
+          concentration: +(conc * 100).toFixed(1),
+          operator_count: operators.size,
+        });
+      }
+    });
+    flagged.sort((a, b) => b.concentration - a.concentration);
+
+    // Matriks transportir × operator (top combos overall)
+    const topCombos = rows.sort((a, b) => b.trip - a.trip).slice(0, 25);
+
+    res.json({
+      summary: { vendors_analyzed: Object.keys(vendors).length, flagged: flagged.length },
+      flagged, topCombos,
+      note: 'Konsentrasi tinggi (1 transportir selalu lewat 1 operator + 1 relasi) BUKAN bukti kolusi — bisa karena pembagian wilayah. Hanya indikator untuk diverifikasi.',
+    });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

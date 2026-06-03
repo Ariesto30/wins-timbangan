@@ -1037,6 +1037,10 @@ function AdvancedTab({ tahun, bulan }) {
     { id:'duration', label:'Durasi & Jarak',     icon: TrendingDown, desc:'Durasi jembatan & jarak tak konsisten' },
     { id:'tare',     label:'Profil Tare Truk',   icon: Truck,        desc:'Stabilitas berat kosong & drift' },
     { id:'throughput',label:'Throughput Monitor',icon: BarChart3,    desc:'Volume IN vs OUT per bulan' },
+    { id:'sameday',  label:'Same-Day Pair',      icon: Copy,         desc:'Truk masuk 2× netto identik' },
+    { id:'benford2', label:'Benford Digit-2',    icon: Hash,         desc:'Distribusi digit kedua netto' },
+    { id:'drivertruck',label:'Driver↔Truk',      icon: Users,        desc:'Pasangan driver-truk tak biasa' },
+    { id:'concentration',label:'Konsentrasi',    icon: Activity,     desc:'Indikator kolusi vendor-operator' },
   ]
   return (
     <div className="space-y-4">
@@ -1067,6 +1071,190 @@ function AdvancedTab({ tahun, bulan }) {
       {sub==='duration'   && <DurationAudit tahun={tahun} bulan={bulan} />}
       {sub==='tare'       && <TareProfileAudit tahun={tahun} bulan={bulan} />}
       {sub==='throughput' && <ThroughputAudit tahun={tahun} />}
+      {sub==='sameday'    && <SameDayPairAudit tahun={tahun} bulan={bulan} />}
+      {sub==='benford2'   && <Benford2Audit tahun={tahun} bulan={bulan} />}
+      {sub==='drivertruck'&& <DriverTruckAudit tahun={tahun} bulan={bulan} />}
+      {sub==='concentration' && <ConcentrationAudit tahun={tahun} bulan={bulan} />}
+    </div>
+  )
+}
+
+/* A2 — Same-Day Pair */
+function SameDayPairAudit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); api.get('/audit/same-day-pair', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  const s = d.summary
+  return (
+    <div className="space-y-4">
+      <div className="card bg-orange-50 border-orange-200 flex items-start gap-3">
+        <Copy className="text-orange-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-orange-700">
+          <strong>Same-Day Pair</strong> — Truk yang sama tercatat 2× di hari sama dengan netto nyaris identik (≤ {s.tol_netto} kg). Bisa wajar (2 ritase ke tujuan sama), bisa double-recording. <strong>Bandingkan jam masuk</strong>: jika sangat berdekatan → mencurigakan.
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <KpiMini label="Pasangan Ter-flag" value={s.flagged} accent={s.flagged > 0 ? 'orange' : 'green'} />
+        <KpiMini label="Truk Terlibat" value={s.trucks_affected} />
+        <KpiMini label="Toleransi Netto" value={`≤ ${s.tol_netto} kg`} />
+      </div>
+      <Section title={`Pasangan trip hari sama (${d.flagged.length})`} desc="Diurutkan dari netto paling identik. Selisih 0 kg + jam berdekatan = paling perlu diperiksa">
+        {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Tidak ada pasangan mencurigakan</div> :
+        <TableLite headers={['No. Polisi','Tanggal','Netto A','Netto B','Selisih','Jam A','Jam B','Relasi A','Relasi B']} rows={d.flagged.map(f => [
+          <span className="font-mono text-xs">{f.no_polisi}</span>,
+          <span className="text-xs text-gray-500">{f.tanggal_masuk}</span>,
+          <span className="font-mono text-xs">{f.netto_a?.toLocaleString('id-ID')}</span>,
+          <span className="font-mono text-xs">{f.netto_b?.toLocaleString('id-ID')}</span>,
+          <span className={`font-bold ${f.selisih===0 ? 'text-red-600' : 'text-orange-500'}`}>{f.selisih}</span>,
+          <span className="font-mono text-xs">{f.jam_a}</span>,
+          <span className="font-mono text-xs">{f.jam_b}</span>,
+          <span className="text-xs">{f.relasi_a}</span>,
+          <span className="text-xs text-gray-400">{f.relasi_b}</span>
+        ])} />}
+      </Section>
+    </div>
+  )
+}
+
+/* A6 — Benford 2nd digit */
+function Benford2Audit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); api.get('/audit/benford-2nd', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  const chart = d.dist.map(x => ({ digit: x.digit, Observasi: x.obs_pct, Harapan: x.exp_pct }))
+  return (
+    <div className="space-y-4">
+      <div className="card bg-yellow-50 border-yellow-200 flex items-start gap-3">
+        <AlertTriangle className="text-yellow-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-yellow-700">
+          <strong>⚠️ Disclaimer penting:</strong> {d.disclaimer}
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <KpiMini label="Chi-Square" value={d.chi2} accent={d.suspicious ? 'red' : 'green'} />
+        <KpiMini label="Ambang (df=9)" value={d.critical} />
+        <KpiMini label="Sampel" value={d.total?.toLocaleString('id-ID')} />
+      </div>
+      <div className="card">
+        <h3 className="text-sm font-bold text-gray-700 mb-3">Distribusi Digit Kedua: Observasi vs Harapan Benford</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={chart} margin={{ top:10,right:10,left:-10,bottom:0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="digit" tick={{ fill:'#64748b', fontSize:11 }} />
+            <YAxis tick={{ fill:'#64748b', fontSize:10 }} unit="%" />
+            <Tooltip contentStyle={tt} formatter={v => v+'%'} />
+            <Legend wrapperStyle={{ fontSize:11 }} />
+            <Bar dataKey="Observasi" fill="#6366f1" radius={[3,3,0,0]} />
+            <Bar dataKey="Harapan" fill="#cbd5e1" radius={[3,3,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+        <p className="text-[11px] text-gray-500 mt-2">
+          {d.suspicious
+            ? '⚠️ Chi-square tinggi — TAPI ini sangat mungkin false-positive karena data terikat kapasitas truk (lihat disclaimer). Gunakan Last-2-Digit Forensic untuk hasil lebih valid.'
+            : '✓ Distribusi mendekati harapan Benford.'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+/* A7 — Driver-Truck Mismatch */
+function DriverTruckAudit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); api.get('/audit/driver-truck', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  const s = d.summary
+  return (
+    <div className="space-y-4">
+      <div className="card bg-blue-50 border-blue-200 flex items-start gap-3">
+        <Users className="text-blue-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-blue-700">
+          <strong>Driver ↔ Truk</strong> — Idealnya tiap truk punya driver tetap. Truk dengan banyak driver, atau driver yang muncul langka di truk bukan miliknya, patut diverifikasi (truk dipinjam / driver bukan karyawan).
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <KpiMini label="Truk Banyak Driver" value={s.trucks_many_drivers} accent={s.trucks_many_drivers > 0 ? 'orange' : 'green'} />
+        <KpiMini label="Pasangan Langka" value={s.rare_pairs} accent={s.rare_pairs > 0 ? 'orange' : 'green'} />
+        <KpiMini label="Driver Banyak Truk" value={s.drivers_many_trucks} accent={s.drivers_many_trucks > 0 ? 'orange' : 'green'} />
+      </div>
+
+      {d.manyDrivers.length > 0 && (
+        <Section title={`Truk dengan ≥4 driver berbeda (${d.manyDrivers.length})`} desc="Truk yang dikemudikan banyak orang">
+          <TableLite headers={['No. Polisi','Total Trip','Jml Driver','Driver (trip)']} rows={d.manyDrivers.map(t => [
+            <span className="font-mono font-medium">{t.no_polisi}</span>, t.total,
+            <span className="font-bold text-orange-600">{t.driver_count}</span>,
+            <span className="text-xs text-gray-500">{t.drivers.slice(0,5).map(dr => `${dr.driver} (${dr.trip})`).join(', ')}{t.drivers.length>5?'...':''}</span>
+          ])} />
+        </Section>
+      )}
+
+      {d.rareTrips.length > 0 && (
+        <Section title={`Pasangan driver-truk langka (${d.rareTrips.length})`} desc="Driver yang jarang di truk dengan driver dominan jelas">
+          <TableLite headers={['No. Polisi','Driver Langka','Trip','% dari Truk','Driver Dominan']} rows={d.rareTrips.map(r => [
+            <span className="font-mono text-xs">{r.no_polisi}</span>,
+            <span className="text-xs">{r.driver}</span>,
+            r.trip,
+            <span className="font-bold text-orange-500">{r.pct}%</span>,
+            <span className="text-xs text-gray-500">{r.dominant} ({r.dominant_trip})</span>
+          ])} />
+        </Section>
+      )}
+
+      {d.manyTrucks.length > 0 && (
+        <Section title={`Driver dengan ≥4 truk berbeda (${d.manyTrucks.length})`} desc="Driver yang berpindah banyak truk">
+          <TableLite headers={['Driver','Jml Truk','Total Trip']} rows={d.manyTrucks.map(t => [
+            <span className="text-xs font-medium">{t.driver}</span>,
+            <span className="font-bold text-orange-600">{t.trucks}</span>, t.total
+          ])} />
+        </Section>
+      )}
+
+      {d.manyDrivers.length === 0 && d.rareTrips.length === 0 && d.manyTrucks.length === 0 && (
+        <div className="card text-center text-green-600 py-8 text-sm">✓ Pairing driver-truk sangat stabil — tidak ada anomali. Indikasi disiplin armada yang sehat.</div>
+      )}
+    </div>
+  )
+}
+
+/* A11 — Concentration / Collusion */
+function ConcentrationAudit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); api.get('/audit/concentration', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  const s = d.summary
+  return (
+    <div className="space-y-4">
+      <div className="card bg-purple-50 border-purple-200 flex items-start gap-3">
+        <Activity className="text-purple-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-purple-700">
+          <strong>Indikator Konsentrasi</strong> — {d.note}
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <KpiMini label="Vendor Dianalisis" value={s.vendors_analyzed} />
+        <KpiMini label="Konsentrasi Tinggi" value={s.flagged} accent={s.flagged > 0 ? 'orange' : 'green'} />
+      </div>
+
+      <Section title={`Vendor konsentrasi tinggi (${d.flagged.length})`} desc="Transportir yang >60% tripnya lewat 1 operator & ≤2 operator total">
+        {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Tidak ada konsentrasi vendor-operator mencurigakan</div> :
+        <TableLite headers={['Transportir','Total Trip','Operator Dominan','Relasi','Konsentrasi','Jml Operator']} rows={d.flagged.map(f => [
+          <span className="font-medium text-xs">{f.transportir}</span>, f.total,
+          <span className="text-xs">{f.top_operator}</span>,
+          <span className="text-xs text-gray-500">{f.top_relasi}</span>,
+          <span className="font-bold text-purple-600">{f.concentration}%</span>,
+          <span className={f.operator_count<=1 ? 'text-orange-500 font-bold' : ''}>{f.operator_count}</span>
+        ])} />}
+      </Section>
+
+      <Section title="Top kombinasi Transportir × Operator × Relasi" desc="25 kombinasi paling sering — peta aliran trip">
+        <TableLite headers={['Transportir','Operator','Relasi','Trip','Netto (ton)']} rows={d.topCombos.map(c => [
+          <span className="text-xs font-medium">{c.transportir}</span>,
+          <span className="text-xs">{c.penimbang}</span>,
+          <span className="text-xs text-gray-500">{c.relasi_nama}</span>,
+          <span className="font-semibold">{c.trip}</span>,
+          <span className="font-mono text-xs">{(c.netto/1000).toFixed(1)}</span>
+        ])} />
+      </Section>
     </div>
   )
 }
