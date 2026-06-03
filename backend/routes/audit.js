@@ -1892,4 +1892,30 @@ router.post('/truck-class/fix', requireRole('admin', 'manajer'), async (req, res
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ─── DRILL-DOWN — ambil data timbangan lengkap (by seri-list / by netto+produk) ─── */
+router.get('/trips', async (req, res) => {
+  try {
+    const { seri, netto, produk, no_polisi } = req.query;
+    const cols = `id, no_seri, tanggal_masuk, jam_masuk, jam_keluar, no_polisi, produk,
+      relasi_nama, berat_masuk, berat_keluar, berat_netto_wins, penimbang, driver,
+      no_kontrak, do_number, transportir`;
+    let rows = [];
+    if (seri) {
+      const list = String(seri).split(',').map(s => s.trim()).filter(Boolean);
+      if (list.length === 0) return res.json({ rows: [] });
+      rows = await db.all(`SELECT ${cols} FROM timbangan WHERE no_seri = ANY($1) ORDER BY tanggal_masuk, no_seri`, [list]);
+    } else if (netto != null && netto !== '') {
+      const p = [parseInt(netto)]; let q = `SELECT ${cols} FROM timbangan WHERE berat_netto_wins = $1`;
+      if (produk) { q += ` AND produk = $2`; p.push(produk); }
+      q += ` ORDER BY tanggal_masuk, no_polisi LIMIT 300`;
+      rows = await db.all(q, p);
+    } else if (no_polisi) {
+      rows = await db.all(`SELECT ${cols} FROM timbangan WHERE no_polisi = $1 ORDER BY tanggal_masuk DESC LIMIT 300`, [no_polisi]);
+    } else {
+      return res.status(400).json({ error: 'Sertakan parameter seri / netto / no_polisi' });
+    }
+    res.json({ rows });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

@@ -633,6 +633,7 @@ function PatternTab({ tahun, bulan }) {
 /* ──────────────── TAB 4: DUPLICATE ──────────────── */
 function DuplicateTab({ tahun, bulan }) {
   const [d, setD] = useState(null)
+  const [drill, setDrill] = useState(null) // {title, params}
   useEffect(() => { api.get('/audit/duplicates', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
@@ -641,7 +642,7 @@ function DuplicateTab({ tahun, bulan }) {
       <div className="card bg-orange-50 border-orange-200 flex items-start gap-3">
         <Copy className="text-orange-600 flex-shrink-0 mt-0.5" size={20}/>
         <div className="text-xs text-orange-700">
-          <strong>Duplicate Detector</strong> — Cari pola data yang persis sama (no.seri ganda, copy-paste data) atau berat netto identik berulang.
+          <strong>Duplicate Detector</strong> — Cari pola data yang persis sama (no.seri ganda, copy-paste data) atau berat netto identik berulang. <em>Klik seri / netto untuk lihat data timbangan lengkap.</em>
         </div>
       </div>
 
@@ -654,11 +655,13 @@ function DuplicateTab({ tahun, bulan }) {
           <span className="font-bold text-red-600">{e.c}×</span>,
           <span className="text-xs text-gray-500">{e.tanggals.join(', ')}</span>,
           <span className="text-xs text-gray-600">{e.polisis?.join(', ')}</span>,
-          <span className="text-xs text-gray-400 font-mono">{e.seris?.join(', ')}</span>
+          e.seris?.length
+            ? <button onClick={() => setDrill({ title: `Seri Relasi ${e.no_seri_relasi}`, params: { seri: e.seris.join(',') } })} className="text-xs text-purple-600 hover:text-purple-800 font-mono underline decoration-dotted">{e.seris.join(', ')}</button>
+            : <span className="text-gray-300">—</span>
         ])} />}
       </Section>
 
-      <Section title={`🟠 Near Duplicate — Berat Identik Berulang (${d.near.length})`} desc="Berat masuk + berat keluar + relasi persis sama di 3+ trip (highly suspicious)">
+      <Section title={`🟠 Near Duplicate — Berat Identik Berulang (${d.near.length})`} desc="Berat masuk + berat keluar + relasi persis sama di 3+ trip (highly suspicious) — klik sampel seri untuk detail">
         {d.near.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Tidak ada near-duplicate ✓</div> :
         <TableLite headers={['B. Masuk','B. Keluar','Relasi','Produk','Jumlah','Sample Seri']} rows={d.near.slice(0,20).map(e => [
           e.berat_masuk?.toLocaleString('id-ID'),
@@ -666,19 +669,74 @@ function DuplicateTab({ tahun, bulan }) {
           e.relasi_nama,
           <span className="badge-neutral">{e.produk}</span>,
           <span className="font-bold text-orange-600">{e.c}×</span>,
-          <span className="text-xs text-gray-500">{e.seris.slice(0,3).join(', ')}{e.seris.length > 3 ? '...' : ''}</span>
+          <button onClick={() => setDrill({ title: `Berat identik ${e.berat_masuk?.toLocaleString('id-ID')}/${e.berat_keluar?.toLocaleString('id-ID')} — ${e.relasi_nama}`, params: { seri: e.seris.join(',') } })}
+            className="text-xs text-purple-600 hover:text-purple-800 font-mono underline decoration-dotted">{e.seris.slice(0,3).join(', ')}{e.seris.length > 3 ? ` (+${e.seris.length-3})` : ''}</button>
         ])} />}
       </Section>
 
-      <Section title={`🟡 Repeated Net Weight (${d.repeatedNetto.length})`} desc="Berat netto persis sama muncul ≥4× — natural data jarang berulang sama persis">
+      <Section title={`🟡 Repeated Net Weight (${d.repeatedNetto.length})`} desc="Berat netto persis sama muncul ≥4× — klik angka netto untuk lihat semua trip dengan netto itu">
         {d.repeatedNetto.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Tidak ada pengulangan netto signifikan ✓</div> :
         <TableLite headers={['Netto (Kg)','Produk','Jumlah','Truck terlibat']} rows={d.repeatedNetto.slice(0,20).map(e => [
-          <span className="font-mono font-semibold">{e.berat_netto_wins?.toLocaleString('id-ID')}</span>,
+          <button onClick={() => setDrill({ title: `Netto ${e.berat_netto_wins?.toLocaleString('id-ID')} kg · ${e.produk}`, params: { netto: e.berat_netto_wins, produk: e.produk } })}
+            className="font-mono font-semibold text-purple-600 hover:text-purple-800 underline decoration-dotted">{e.berat_netto_wins?.toLocaleString('id-ID')}</button>,
           <span className="badge-neutral">{e.produk}</span>,
           <span className="font-bold text-yellow-700">{e.c}×</span>,
           <span className="text-xs text-gray-500">{e.polisis.slice(0,4).join(', ')}{e.polisis.length>4 ? `... (+${e.polisis.length-4})` : ''}</span>
         ])} />}
       </Section>
+
+      {drill && <TripDetailModal title={drill.title} params={drill.params} onClose={() => setDrill(null)} />}
+    </div>
+  )
+}
+
+/* Modal drill-down: tampilkan data timbangan lengkap berdasarkan seri / netto / no_polisi */
+function TripDetailModal({ title, params, onClose }) {
+  const [rows, setRows] = useState(null)
+  useEffect(() => { api.get('/audit/trips', { params }).then(r => setRows(r.data.rows)).catch(() => setRows([])) }, [])
+  const total = rows?.length || 0
+  const sumNetto = rows?.reduce((s, r) => s + (r.berat_netto_wins || 0), 0) || 0
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-6xl max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <div>
+            <h3 className="font-bold text-gray-800">{title}</h3>
+            <p className="text-xs text-gray-400">{total} trip{total ? ` · total netto ${sumNetto.toLocaleString('id-ID')} kg` : ''}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+        </div>
+        <div className="overflow-auto p-4">
+          {rows === null ? <div className="text-center text-gray-400 py-8">Memuat...</div> :
+           rows.length === 0 ? <div className="text-center text-gray-400 py-8">Tidak ada data</div> :
+          <table className="w-full text-xs">
+            <thead className="sticky top-0"><tr className="border-b border-gray-200 bg-gray-50">
+              {['No.Seri','Tanggal','Jam M','Jam K','No.Polisi','Produk','Relasi','B.Masuk','B.Keluar','Netto','Penimbang','Driver','No.Kontrak','DO','Transportir'].map(h => <th key={h} className="px-2 py-2 text-left font-semibold text-gray-500 whitespace-nowrap">{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-2 py-1.5 font-mono">{r.no_seri}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{r.tanggal_masuk}</td>
+                  <td className="px-2 py-1.5 font-mono">{r.jam_masuk || '–'}</td>
+                  <td className="px-2 py-1.5 font-mono">{r.jam_keluar || '–'}</td>
+                  <td className="px-2 py-1.5 font-mono whitespace-nowrap">{r.no_polisi}</td>
+                  <td className="px-2 py-1.5"><span className="badge-neutral">{r.produk}</span></td>
+                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[160px] truncate" title={r.relasi_nama}>{r.relasi_nama}</td>
+                  <td className="px-2 py-1.5 font-mono text-right">{r.berat_masuk?.toLocaleString('id-ID')}</td>
+                  <td className="px-2 py-1.5 font-mono text-right">{r.berat_keluar?.toLocaleString('id-ID')}</td>
+                  <td className="px-2 py-1.5 font-mono text-right font-semibold">{r.berat_netto_wins?.toLocaleString('id-ID')}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{r.penimbang || '–'}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[120px] truncate" title={r.driver}>{r.driver || '–'}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap max-w-[140px] truncate" title={r.no_kontrak}>{r.no_kontrak || '–'}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{r.do_number || '–'}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">{r.transportir || '–'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>}
+        </div>
+      </div>
     </div>
   )
 }
