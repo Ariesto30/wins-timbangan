@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Database, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle } from 'lucide-react'
+import { Database, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle, MoveVertical, Pencil, AlertTriangle, Gauge, Layers, Droplets } from 'lucide-react'
 import api from '../utils/api'
 
 const PRODUK = ['CPO', 'RBDPL', 'RBDPS', 'PFAD', 'Stearin', 'Olein', 'RBDPO', 'B-40', 'BE']
@@ -23,33 +23,37 @@ export default function TankInventory() {
   const s = data.summary
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0ea5e9,#0369a1)' }}>
-            <Database size={22} className="text-white" />
+    <div className="space-y-5">
+      {/* Header — industrial control bar */}
+      <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(120deg,#0f172a,#1e293b 55%,#0c4a6e)' }}>
+        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '22px 22px' }} />
+        <div className="relative flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center ring-1 ring-white/20" style={{ background: 'linear-gradient(135deg,#38bdf8,#0369a1)' }}>
+              <Database size={22} className="text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white tracking-tight">Tank Farm — Digital Twin</h1>
+              <p className="text-sm text-slate-300/80">Monitoring stok, utilisasi & retensi real-time</p>
+            </div>
           </div>
-          <div>
-            <h1 className="page-title">Tank Inventory</h1>
-            <p className="page-subtitle">Stok & utilisasi tangki + log pergerakan</p>
-          </div>
+          <button onClick={() => setEditTank({ nama: '', produk: '', kapasitas_mt: 0, kode: '', lokasi: '', no_urut: (data?.tanks?.length || 0) + 1 })} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 ring-1 ring-white/20 text-white text-sm font-semibold transition-colors backdrop-blur-sm"><Plus size={15} /> Tangki Baru</button>
         </div>
-        <button onClick={() => setEditTank({ nama: '', produk: '', kapasitas_mt: 0, kode: '', lokasi: '', no_urut: (data?.tanks?.length || 0) + 1 })} className="btn-primary flex items-center gap-2"><Plus size={15} /> Tangki Baru</button>
-      </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <KpiBox label="Jumlah Tangki" value={s.total_tank} />
-        <KpiBox label="Total Kapasitas" value={`${fmt(s.total_kapasitas)} MT`} />
-        <KpiBox label="Total Stok" value={`${fmt(s.total_stok)} MT`} color="sky" />
-        <KpiBox label="Utilisasi" value={`${s.util_pct}%`} color={s.util_pct > 85 ? 'red' : 'green'} />
-        <KpiBox label="Tangki Penuh (≥90%)" value={s.penuh} color={s.penuh > 0 ? 'orange' : 'green'} />
+        {/* Summary glassmorphism strip */}
+        <div className="relative grid grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
+          <GlassKpi icon={<Layers size={15} />} label="Jumlah Tangki" value={s.total_tank} />
+          <GlassKpi icon={<Gauge size={15} />} label="Total Kapasitas" value={`${fmt(s.total_kapasitas)}`} unit="MT" />
+          <GlassKpi icon={<Droplets size={15} />} label="Total Stok" value={`${fmt(s.total_stok)}`} unit="MT" accent="#38bdf8" />
+          <GlassKpi icon={<Gauge size={15} />} label="Utilisasi" value={`${s.util_pct}`} unit="%" accent={s.util_pct > 85 ? '#f87171' : '#34d399'} />
+          <GlassKpi icon={<AlertTriangle size={15} />} label="Hampir Penuh" value={s.penuh} accent={s.penuh > 0 ? '#fb923c' : '#34d399'} />
+        </div>
       </div>
 
       {data.tanks.length === 0 ? (
         <div className="card text-center text-gray-400 py-12">Belum ada tangki. Klik "Tangki Baru" untuk menambah 14 tangki Anda.</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {data.tanks.map(t => <TankCard key={t.id} t={t} onEdit={() => setEditTank(t)} onMove={() => setMoveTank(t)} />)}
         </div>
       )}
@@ -60,52 +64,162 @@ export default function TankInventory() {
   )
 }
 
-const PRODUK_COLOR = { CPO: '#f59e0b', RBDPL: '#0ea5e9', RBDPS: '#8b5cf6', PFAD: '#ec4899', Stearin: '#a855f7', Olein: '#10b981', RBDPO: '#0d9488', 'B-40': '#64748b', BE: '#64748b' }
+// Palet produk: [warna utama, warna terang (meniscus/gradient atas)]
+const PRODUK_PALETTE = {
+  CPO:     ['#f59e0b', '#fcd34d'],
+  RBDPO:   ['#0d9488', '#2dd4bf'],
+  RBDPL:   ['#16a34a', '#4ade80'],
+  Olein:   ['#16a34a', '#4ade80'],
+  RBDPS:   ['#7c3aed', '#a78bfa'],
+  Stearin: ['#7c3aed', '#a78bfa'],
+  PFAD:    ['#db2777', '#f472b6'],
+  'B-40':  ['#475569', '#94a3b8'],
+  BE:      ['#475569', '#94a3b8'],
+}
+const palette = p => PRODUK_PALETTE[p] || ['#64748b', '#94a3b8']
+
+// Status operasional berdasar utilisasi
+function tankStatus(pct) {
+  if (pct > 100) return { label: 'Over Capacity', cls: 'bg-red-100 text-red-700 ring-red-200', dot: '#dc2626' }
+  if (pct >= 90) return { label: 'Hampir Penuh', cls: 'bg-orange-100 text-orange-700 ring-orange-200', dot: '#f97316' }
+  if (pct >= 70) return { label: 'Perhatian', cls: 'bg-yellow-100 text-yellow-700 ring-yellow-200', dot: '#eab308' }
+  if (pct < 8) return { label: 'Hampir Kosong', cls: 'bg-slate-100 text-slate-600 ring-slate-200', dot: '#94a3b8' }
+  return { label: 'Normal', cls: 'bg-emerald-100 text-emerald-700 ring-emerald-200', dot: '#10b981' }
+}
+
+/* Tank silinder 2.5D dengan permukaan cairan beranimasi + shimmer + bubble */
+function IsoTank({ pct, produk }) {
+  const [c, cLight] = palette(produk)
+  const frac = Math.max(0, Math.min(pct, 100)) / 100
+  const TOP = 24, BOT = 146, H = BOT - TOP        // body 24..146
+  const surfaceY = BOT - frac * H
+  const hasLiquid = frac > 0.01
+  const uid = `tk${produk || 'x'}${Math.round(pct)}`
+  const bodyPath = `M22,${TOP} A38,11 0 0 1 98,${TOP} L98,${BOT} A38,11 0 0 1 22,${BOT} Z`
+  return (
+    <svg viewBox="0 0 120 178" className="w-full h-44" role="img" aria-label={`Tangki ${produk} ${Math.round(pct)}%`}>
+      <defs>
+        <linearGradient id={`${uid}-liq`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={cLight} />
+          <stop offset="100%" stopColor={c} />
+        </linearGradient>
+        <linearGradient id={`${uid}-glass`} x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="rgba(255,255,255,.55)" />
+          <stop offset="22%" stopColor="rgba(255,255,255,.05)" />
+          <stop offset="55%" stopColor="rgba(255,255,255,0)" />
+          <stop offset="82%" stopColor="rgba(15,23,42,.06)" />
+          <stop offset="100%" stopColor="rgba(15,23,42,.14)" />
+        </linearGradient>
+        <clipPath id={`${uid}-clip`}><path d={bodyPath} /></clipPath>
+      </defs>
+
+      {/* Bayangan platform (digital-twin pad) */}
+      <ellipse cx="60" cy="165" rx="44" ry="9" fill="rgba(15,23,42,.10)" />
+      <ellipse cx="60" cy="163" rx="40" ry="7.5" fill="rgba(148,163,184,.18)" />
+
+      {/* Dinding belakang tabung (rim bawah) */}
+      <path d={bodyPath} fill="#eef2f7" />
+
+      {/* Cairan + animasi (di-clip ke badan tabung) */}
+      <g clipPath={`url(#${uid}-clip)`}>
+        {hasLiquid && <>
+          <rect x="22" y={surfaceY} width="76" height={BOT - surfaceY + 2} fill={`url(#${uid}-liq)`} />
+          {/* permukaan meniscus 3D */}
+          <ellipse className="tank-liquid-surface" cx="60" cy={surfaceY} rx="38" ry="10.5" fill={cLight} opacity="0.95" />
+          <ellipse className="tank-liquid-surface" cx="60" cy={surfaceY} rx="30" ry="7" fill="#ffffff" opacity="0.18" />
+          {/* shimmer sweep */}
+          <rect className="tank-shimmer" x="22" y={surfaceY} width="34" height={BOT - surfaceY} fill="rgba(255,255,255,.35)" />
+          {/* bubbles (hanya jika ada cukup cairan) */}
+          {frac > 0.18 && <>
+            <circle className="tank-bubble" cx="46" cy={BOT - 8} r="2.2" fill="rgba(255,255,255,.6)" style={{ animationDelay: '0s' }} />
+            <circle className="tank-bubble" cx="68" cy={BOT - 6} r="1.6" fill="rgba(255,255,255,.5)" style={{ animationDelay: '1.6s' }} />
+            <circle className="tank-bubble" cx="58" cy={BOT - 10} r="1.9" fill="rgba(255,255,255,.55)" style={{ animationDelay: '3s' }} />
+          </>}
+        </>}
+      </g>
+
+      {/* Lapisan kaca tabung */}
+      <path d={bodyPath} fill={`url(#${uid}-glass)`} stroke="rgba(15,23,42,.16)" strokeWidth="1" />
+      {/* Garis ukur 25/50/75 di sisi kiri */}
+      {[0.25, 0.5, 0.75].map((g, i) => (
+        <line key={i} x1="23" y1={BOT - g * H} x2="31" y2={BOT - g * H} stroke="rgba(15,23,42,.18)" strokeWidth="1" />
+      ))}
+      {/* Rim atas (bukaan tangki) */}
+      <ellipse cx="60" cy={TOP} rx="38" ry="11" fill="#f8fafc" stroke="rgba(15,23,42,.22)" strokeWidth="1.2" />
+      <ellipse cx="60" cy={TOP} rx="30" ry="8" fill="none" stroke="rgba(15,23,42,.10)" strokeWidth="1" />
+      {/* Nozzle/manhole kecil di atas */}
+      <rect x="55" y={TOP - 9} width="10" height="6" rx="1.5" fill="#cbd5e1" stroke="rgba(15,23,42,.2)" strokeWidth=".8" />
+    </svg>
+  )
+}
 
 function TankCard({ t, onEdit, onMove }) {
   const pct = t.util_pct
-  const over = pct > 100
-  const color = over ? '#dc2626' : pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : pct < 10 ? '#94a3b8' : '#0ea5e9'
-  const prodColor = PRODUK_COLOR[t.produk] || '#64748b'
-  // Retensi: tangki lama berisiko mutu turun
-  const retOld = t.hari_tersimpan != null && t.hari_tersimpan > 45
+  const [c] = palette(t.produk)
+  const st = tankStatus(pct)
+  const retHigh = t.hari_tersimpan != null && t.hari_tersimpan > 45
   return (
-    <div className="card">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{t.no_urut ?? '?'}</span>
-          <div>
-            <div className="font-bold text-gray-800 leading-tight">{t.nama}</div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: prodColor }}>{t.produk || 'belum diset'}</span>
-              {t.lokasi && <span className="text-[10px] text-gray-400">{t.lokasi}</span>}
+    <div className="tank-card relative rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      {/* aksen warna produk di tepi atas */}
+      <div className="h-1" style={{ background: `linear-gradient(90deg, ${c}, ${palette(t.produk)[1]})` }} />
+
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-1">
+          <div className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-xl text-white text-sm font-extrabold flex items-center justify-center flex-shrink-0 shadow-sm" style={{ background: `linear-gradient(135deg, ${palette(t.produk)[1]}, ${c})` }}>{t.no_urut ?? '?'}</span>
+            <div>
+              <div className="font-bold text-slate-800 leading-tight">{t.nama}</div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white tracking-wide" style={{ background: c }}>{t.produk || 'N/A'}</span>
+                {t.lokasi && <span className="text-[10px] text-slate-400">{t.lokasi}</span>}
+              </div>
+            </div>
+          </div>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ring-1 ${st.cls} flex items-center gap-1`}>
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.dot }} />{st.label}
+          </span>
+        </div>
+
+        {/* Tank visual + metrik */}
+        <div className="flex items-center gap-2 mt-2">
+          <div className="relative flex-shrink-0" style={{ width: 116 }}>
+            <IsoTank pct={pct} produk={t.produk} />
+            {/* Quick actions hover overlay */}
+            <div className="tank-actions absolute inset-x-0 bottom-1 flex justify-center gap-1.5">
+              <button onClick={onMove} title="Pergerakan stok" className="px-2 py-1 rounded-lg bg-white/95 shadow ring-1 ring-slate-200 text-[10px] font-semibold text-sky-700 hover:bg-sky-50 flex items-center gap-1"><MoveVertical size={11} /> Gerakan</button>
+              <button onClick={onEdit} title="Edit tangki" className="px-2 py-1 rounded-lg bg-white/95 shadow ring-1 ring-slate-200 text-[10px] font-semibold text-slate-700 hover:bg-slate-50 flex items-center gap-1"><Pencil size={11} /> Edit</button>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            {/* Utilisasi besar */}
+            <div className="flex items-baseline gap-1">
+              <span className="text-3xl font-extrabold tabular-nums" style={{ color: st.dot }}>{pct}</span>
+              <span className="text-sm font-bold text-slate-400">%</span>
+              {pct > 100 && <AlertTriangle size={14} className="text-red-500 ml-0.5" />}
+            </div>
+            <div className="text-xs text-slate-500 -mt-0.5 mb-2">utilisasi</div>
+
+            {/* Volume */}
+            <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-2.5 py-2 space-y-1">
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Stok</span><span className="font-bold font-mono text-slate-700">{fmt(t.stok)}</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Kapasitas</span><span className="font-mono text-slate-500">{fmt(t.kapasitas_mt)} MT</span></div>
+              {t.hari_tersimpan != null && (
+                <div className="flex justify-between text-xs pt-1 border-t border-slate-200/70">
+                  <span className="text-slate-400">Retensi</span>
+                  <span className={`font-semibold ${retHigh ? 'text-orange-600' : 'text-slate-600'}`}>{t.hari_tersimpan} hari{retHigh ? ' ⚠' : ''}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
-        <button onClick={onEdit} className="text-gray-400 hover:text-gray-700 text-xs">ubah</button>
-      </div>
-      {/* Gauge */}
-      <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden mb-1">
-        <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
-      </div>
-      <div className="flex justify-between text-xs mb-2">
-        <span className="font-semibold" style={{ color }}>{fmt(t.stok)} MT ({pct}%{over ? ' ⚠' : ''})</span>
-        <span className="text-gray-400">kap. {fmt(t.kapasitas_mt)} MT</span>
-      </div>
-      {/* Retensi */}
-      {(t.akhir_filling || t.be_digunakan) && (
-        <div className="text-[10px] text-gray-500 mb-2 space-y-0.5 border-t border-gray-100 pt-1.5">
-          {t.hari_tersimpan != null && (
-            <div className={retOld ? 'text-orange-600 font-semibold' : ''}>
-              ⏱ Tersimpan {t.hari_tersimpan} hari {retOld ? '· retensi panjang, pantau mutu' : ''}
-            </div>
-          )}
-          {t.be_digunakan && <div>🧪 BE: {t.be_digunakan}</div>}
+
+        {/* Footer */}
+        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-100">
+          <span className="text-[10px] text-slate-400">{t.be_digunakan ? `🧪 ${t.be_digunakan}` : (t.last_update ? `↻ ${t.last_update}` : 'belum ada gerakan')}</span>
+          {retHigh && <span className="text-[10px] font-semibold text-orange-600">Retensi Tinggi</span>}
         </div>
-      )}
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-gray-400">{t.last_update ? `update ${t.last_update}` : 'belum ada gerakan'}</span>
-        <button onClick={onMove} className="text-xs text-sky-600 hover:text-sky-800 font-medium">+ Pergerakan</button>
       </div>
     </div>
   )
@@ -231,6 +345,20 @@ function Field({ label, children }) {
 function KpiBox({ label, value, color }) {
   const txt = color === 'red' ? 'text-red-600' : color === 'green' ? 'text-green-600' : color === 'sky' ? 'text-sky-600' : color === 'orange' ? 'text-orange-500' : 'text-gray-800'
   return <div className="card"><div className="text-xs text-gray-500">{label}</div><div className={`text-xl font-bold mt-1 ${txt}`}>{value}</div></div>
+}
+
+function GlassKpi({ icon, label, value, unit, accent }) {
+  return (
+    <div className="rounded-xl bg-white/10 ring-1 ring-white/15 backdrop-blur-md px-3 py-2.5">
+      <div className="flex items-center gap-1.5 text-[11px] text-slate-300/80 mb-1">
+        <span style={{ color: accent || '#cbd5e1' }}>{icon}</span>{label}
+      </div>
+      <div className="flex items-baseline gap-1">
+        <span className="text-xl font-extrabold text-white tabular-nums" style={accent ? { color: accent } : {}}>{value}</span>
+        {unit && <span className="text-[11px] font-semibold text-slate-400">{unit}</span>}
+      </div>
+    </div>
+  )
 }
 
 function LoadError({ msg, onRetry }) {
