@@ -128,6 +128,65 @@ async function initDB() {
       updated_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // Tank inventory — master tangki + log pergerakan stok
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tank (
+      id SERIAL PRIMARY KEY,
+      kode TEXT,
+      nama TEXT NOT NULL,
+      produk TEXT,
+      kapasitas_mt REAL DEFAULT 0,
+      lokasi TEXT,
+      aktif INTEGER NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tank_movement (
+      id SERIAL PRIMARY KEY,
+      tank_id INTEGER REFERENCES tank(id) ON DELETE CASCADE,
+      tanggal DATE NOT NULL,
+      opening REAL DEFAULT 0,
+      inbound REAL DEFAULT 0,
+      outbound REAL DEFAULT 0,
+      closing REAL DEFAULT 0,
+      catatan TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // Quality log — parameter lab per batch/sampel
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS quality_log (
+      id SERIAL PRIMARY KEY,
+      tanggal DATE NOT NULL,
+      produk TEXT,
+      relasi_nama TEXT,
+      sampel TEXT,
+      ffa REAL,
+      mni REAL,
+      iv REAL,
+      dobi REAL,
+      color TEXT,
+      catatan TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // Pembayaran — catatan bayar per kontrak untuk aging piutang
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS pembayaran (
+      id SERIAL PRIMARY KEY,
+      no_kontrak TEXT,
+      relasi_nama TEXT,
+      tanggal DATE NOT NULL,
+      jumlah REAL DEFAULT 0,
+      metode TEXT,
+      keterangan TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
   // Refinery mass-balance / raw & stock balancing per periode cut-off
   await pool.query(`
     CREATE TABLE IF NOT EXISTS refinery_balance (

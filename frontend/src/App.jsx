@@ -11,6 +11,9 @@ import Laporan from './pages/Laporan'
 import Armada from './pages/Armada'
 import AuditForensik from './pages/AuditForensik'
 import RefineryReconciliation from './pages/RefineryReconciliation'
+import TankInventory from './pages/TankInventory'
+import QualityLog from './pages/QualityLog'
+import PaymentAging from './pages/PaymentAging'
 import Pengguna from './pages/Pengguna'
 
 function PrivateRoute({ children }) {
@@ -42,6 +45,9 @@ export default function App() {
       <Route path="/armada" element={<PrivateRoute><Layout><Armada /></Layout></PrivateRoute>} />
       <Route path="/audit" element={<PrivateRoute><Layout><AuditForensik /></Layout></PrivateRoute>} />
       <Route path="/refinery" element={<PrivateRoute><Layout><RefineryReconciliation /></Layout></PrivateRoute>} />
+      <Route path="/tank" element={<PrivateRoute><Layout><TankInventory /></Layout></PrivateRoute>} />
+      <Route path="/quality" element={<PrivateRoute><Layout><QualityLog /></Layout></PrivateRoute>} />
+      <Route path="/payment" element={<PrivateRoute><Layout><PaymentAging /></Layout></PrivateRoute>} />
       <Route path="/pengguna" element={<PrivateRoute><Layout><Pengguna /></Layout></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
