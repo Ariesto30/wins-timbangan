@@ -3,6 +3,7 @@ import { Database, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle } from 
 import api from '../utils/api'
 
 const PRODUK = ['CPO', 'RBDPL', 'RBDPS', 'PFAD', 'Stearin', 'Olein', 'RBDPO', 'B-40', 'BE']
+const daysBetween = (a, b) => Math.floor((new Date(b) - new Date(a)) / 86400000)
 const fmt = v => Number(v || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })
 
 export default function TankInventory() {
@@ -28,7 +29,7 @@ export default function TankInventory() {
             <p className="page-subtitle">Stok & utilisasi tangki + log pergerakan</p>
           </div>
         </div>
-        <button onClick={() => setEditTank({ nama: '', produk: '', kapasitas_mt: 0, kode: '', lokasi: '' })} className="btn-primary flex items-center gap-2"><Plus size={15} /> Tangki Baru</button>
+        <button onClick={() => setEditTank({ nama: '', produk: '', kapasitas_mt: 0, kode: '', lokasi: '', no_urut: (data?.tanks?.length || 0) + 1 })} className="btn-primary flex items-center gap-2"><Plus size={15} /> Tangki Baru</button>
       </div>
 
       {/* Summary */}
@@ -54,26 +55,49 @@ export default function TankInventory() {
   )
 }
 
+const PRODUK_COLOR = { CPO: '#f59e0b', RBDPL: '#0ea5e9', RBDPS: '#8b5cf6', PFAD: '#ec4899', Stearin: '#a855f7', Olein: '#10b981', RBDPO: '#0d9488', 'B-40': '#64748b', BE: '#64748b' }
+
 function TankCard({ t, onEdit, onMove }) {
   const pct = t.util_pct
-  const color = pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : pct < 10 ? '#94a3b8' : '#0ea5e9'
+  const over = pct > 100
+  const color = over ? '#dc2626' : pct >= 90 ? '#ef4444' : pct >= 70 ? '#f59e0b' : pct < 10 ? '#94a3b8' : '#0ea5e9'
+  const prodColor = PRODUK_COLOR[t.produk] || '#64748b'
+  // Retensi: tangki lama berisiko mutu turun
+  const retOld = t.hari_tersimpan != null && t.hari_tersimpan > 45
   return (
     <div className="card">
       <div className="flex items-start justify-between mb-2">
-        <div>
-          <div className="font-bold text-gray-800">{t.kode ? `${t.kode} · ` : ''}{t.nama}</div>
-          <div className="text-xs text-gray-400">{t.produk || 'belum diset'} {t.lokasi ? `· ${t.lokasi}` : ''}</div>
+        <div className="flex items-center gap-2">
+          <span className="w-7 h-7 rounded-lg bg-gray-100 text-gray-700 text-xs font-bold flex items-center justify-center flex-shrink-0">{t.no_urut ?? '?'}</span>
+          <div>
+            <div className="font-bold text-gray-800 leading-tight">{t.nama}</div>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ background: prodColor }}>{t.produk || 'belum diset'}</span>
+              {t.lokasi && <span className="text-[10px] text-gray-400">{t.lokasi}</span>}
+            </div>
+          </div>
         </div>
-        <button onClick={onEdit} className="text-gray-400 hover:text-gray-700 text-xs">edit</button>
+        <button onClick={onEdit} className="text-gray-400 hover:text-gray-700 text-xs">ubah</button>
       </div>
       {/* Gauge */}
       <div className="relative h-4 bg-gray-100 rounded-full overflow-hidden mb-1">
         <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{ width: `${Math.min(pct, 100)}%`, background: color }} />
       </div>
-      <div className="flex justify-between text-xs mb-3">
-        <span className="font-semibold" style={{ color }}>{fmt(t.stok)} MT ({pct}%)</span>
+      <div className="flex justify-between text-xs mb-2">
+        <span className="font-semibold" style={{ color }}>{fmt(t.stok)} MT ({pct}%{over ? ' ⚠' : ''})</span>
         <span className="text-gray-400">kap. {fmt(t.kapasitas_mt)} MT</span>
       </div>
+      {/* Retensi */}
+      {(t.akhir_filling || t.be_digunakan) && (
+        <div className="text-[10px] text-gray-500 mb-2 space-y-0.5 border-t border-gray-100 pt-1.5">
+          {t.hari_tersimpan != null && (
+            <div className={retOld ? 'text-orange-600 font-semibold' : ''}>
+              ⏱ Tersimpan {t.hari_tersimpan} hari {retOld ? '· retensi panjang, pantau mutu' : ''}
+            </div>
+          )}
+          {t.be_digunakan && <div>🧪 BE: {t.be_digunakan}</div>}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <span className="text-[10px] text-gray-400">{t.last_update ? `update ${t.last_update}` : 'belum ada gerakan'}</span>
         <button onClick={onMove} className="text-xs text-sky-600 hover:text-sky-800 font-medium">+ Pergerakan</button>
@@ -100,10 +124,16 @@ function TankForm({ tank, onClose, onSaved }) {
     await api.delete(`/tank/${f.id}`); onSaved()
   }
   return (
-    <Modal title={f.id ? 'Edit Tangki' : 'Tangki Baru'} onClose={onClose}>
+    <Modal title={f.id ? `Ubah Peruntukan Tangki No. ${f.no_urut ?? ''}` : 'Tangki Baru'} onClose={onClose}>
+      {f.id && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2.5 mb-3 text-[11px] text-blue-700">
+          💡 Nomor tangki <strong>#{f.no_urut}</strong> tetap. Anda bebas mengubah produk, kapasitas, dan nama — riwayat tangki lain tidak terpengaruh.
+        </div>
+      )}
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Kode"><input value={f.kode || ''} onChange={e => set('kode', e.target.value)} placeholder="T-01" className="input w-full" /></Field>
-        <Field label="Nama *"><input value={f.nama} onChange={e => set('nama', e.target.value)} placeholder="Tangki CPO 1" className="input w-full" /></Field>
+        <Field label="No. Tangki"><input type="number" value={f.no_urut ?? ''} onChange={e => set('no_urut', e.target.value)} className="input w-full" /></Field>
+        <Field label="Kode"><input value={f.kode || ''} onChange={e => set('kode', e.target.value)} placeholder="ST01" className="input w-full" /></Field>
+        <Field label="Nama / Peruntukan *"><input value={f.nama} onChange={e => set('nama', e.target.value)} placeholder="CPO ST01" className="input w-full" /></Field>
         <Field label="Produk">
           <select value={f.produk || ''} onChange={e => set('produk', e.target.value)} className="input w-full">
             <option value="">— pilih —</option>{PRODUK.map(p => <option key={p}>{p}</option>)}
@@ -111,6 +141,14 @@ function TankForm({ tank, onClose, onSaved }) {
         </Field>
         <Field label="Kapasitas (MT)"><input type="number" step="any" value={f.kapasitas_mt} onChange={e => set('kapasitas_mt', e.target.value)} className="input w-full" /></Field>
         <Field label="Lokasi"><input value={f.lokasi || ''} onChange={e => set('lokasi', e.target.value)} className="input w-full" /></Field>
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-100">
+        <div className="text-[11px] font-bold text-gray-500 mb-2">RETENSI & STABILITAS (opsional)</div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Awal Filling"><input type="date" value={f.awal_filling || ''} onChange={e => set('awal_filling', e.target.value)} className="input w-full" /></Field>
+          <Field label="Akhir Filling"><input type="date" value={f.akhir_filling || ''} onChange={e => set('akhir_filling', e.target.value)} className="input w-full" /></Field>
+          <Field label="BE Digunakan"><input value={f.be_digunakan || ''} onChange={e => set('be_digunakan', e.target.value)} placeholder="CLARIANT OPTIMUM" className="input w-full" /></Field>
+        </div>
       </div>
       <div className="flex gap-2 mt-4">
         <button onClick={save} disabled={saving} className="btn-primary flex items-center gap-2"><Save size={15} /> {saving ? '...' : 'Simpan'}</button>

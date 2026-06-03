@@ -6,16 +6,19 @@ router.use(authenticate);
 
 /* ───────── TANK INVENTORY — master tangki + pergerakan stok ───────── */
 
-// GET semua tangki + stok terkini (closing terakhir) + utilisasi
+// GET semua tangki + stok terkini (closing terakhir) + utilisasi + retensi
 router.get('/', async (req, res) => {
   try {
-    const tanks = await db.all(`SELECT * FROM tank WHERE aktif = 1 ORDER BY kode, nama`);
+    const tanks = await db.all(`SELECT * FROM tank WHERE aktif = 1 ORDER BY no_urut NULLS LAST, kode, nama`);
+    const today = new Date();
     // Stok terkini = closing dari movement terbaru per tangki
     for (const t of tanks) {
       const last = await db.get(`SELECT closing, tanggal FROM tank_movement WHERE tank_id = $1 ORDER BY tanggal DESC, id DESC LIMIT 1`, [t.id]);
       t.stok = last ? Number(last.closing) : 0;
       t.last_update = last ? last.tanggal : null;
       t.util_pct = t.kapasitas_mt > 0 ? +(t.stok / t.kapasitas_mt * 100).toFixed(1) : 0;
+      // Hari tersimpan sejak akhir filling
+      t.hari_tersimpan = t.akhir_filling ? Math.floor((today - new Date(t.akhir_filling)) / 86400000) : null;
     }
     const summary = {
       total_tank: tanks.length,
@@ -32,20 +35,24 @@ router.get('/', async (req, res) => {
 // POST tangki baru
 router.post('/', requireRole('admin', 'manajer'), async (req, res) => {
   try {
-    const { kode, nama, produk, kapasitas_mt, lokasi } = req.body;
-    if (!nama) return res.status(400).json({ error: 'Nama tangki wajib' });
-    const r = await db.get(`INSERT INTO tank (kode, nama, produk, kapasitas_mt, lokasi) VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [kode || null, nama, produk || null, Number(kapasitas_mt) || 0, lokasi || null]);
+    const b = req.body;
+    if (!b.nama) return res.status(400).json({ error: 'Nama tangki wajib' });
+    const r = await db.get(`INSERT INTO tank (no_urut, kode, nama, produk, kapasitas_mt, lokasi, awal_filling, akhir_filling, be_digunakan, catatan)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+      [b.no_urut || null, b.kode || null, b.nama, b.produk || null, Number(b.kapasitas_mt) || 0, b.lokasi || null,
+        b.awal_filling || null, b.akhir_filling || null, b.be_digunakan || null, b.catatan || null]);
     res.json(r);
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-// PUT update tangki
+// PUT update tangki — peruntukan (produk/kapasitas/nama) editable, no_urut tetap stabil
 router.put('/:id', requireRole('admin', 'manajer'), async (req, res) => {
   try {
-    const { kode, nama, produk, kapasitas_mt, lokasi, aktif } = req.body;
-    await db.run(`UPDATE tank SET kode=$1, nama=$2, produk=$3, kapasitas_mt=$4, lokasi=$5, aktif=$6 WHERE id=$7`,
-      [kode || null, nama, produk || null, Number(kapasitas_mt) || 0, lokasi || null, aktif ?? 1, req.params.id]);
+    const b = req.body;
+    await db.run(`UPDATE tank SET no_urut=$1, kode=$2, nama=$3, produk=$4, kapasitas_mt=$5, lokasi=$6,
+      awal_filling=$7, akhir_filling=$8, be_digunakan=$9, catatan=$10, aktif=$11 WHERE id=$12`,
+      [b.no_urut || null, b.kode || null, b.nama, b.produk || null, Number(b.kapasitas_mt) || 0, b.lokasi || null,
+        b.awal_filling || null, b.akhir_filling || null, b.be_digunakan || null, b.catatan || null, b.aktif ?? 1, req.params.id]);
     res.json({ message: 'Tersimpan' });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });

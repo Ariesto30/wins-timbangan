@@ -132,15 +132,26 @@ async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tank (
       id SERIAL PRIMARY KEY,
+      no_urut INTEGER,
       kode TEXT,
       nama TEXT NOT NULL,
       produk TEXT,
       kapasitas_mt REAL DEFAULT 0,
       lokasi TEXT,
+      awal_filling DATE,
+      akhir_filling DATE,
+      be_digunakan TEXT,
+      catatan TEXT,
       aktif INTEGER NOT NULL DEFAULT 1,
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // Kolom retensi (idempotent — untuk tabel tank yang sudah terlanjur dibuat)
+  await pool.query(`ALTER TABLE tank ADD COLUMN IF NOT EXISTS no_urut INTEGER`);
+  await pool.query(`ALTER TABLE tank ADD COLUMN IF NOT EXISTS awal_filling DATE`);
+  await pool.query(`ALTER TABLE tank ADD COLUMN IF NOT EXISTS akhir_filling DATE`);
+  await pool.query(`ALTER TABLE tank ADD COLUMN IF NOT EXISTS be_digunakan TEXT`);
+  await pool.query(`ALTER TABLE tank ADD COLUMN IF NOT EXISTS catatan TEXT`);
   await pool.query(`
     CREATE TABLE IF NOT EXISTS tank_movement (
       id SERIAL PRIMARY KEY,
