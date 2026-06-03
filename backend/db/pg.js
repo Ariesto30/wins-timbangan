@@ -166,24 +166,35 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
-  // Quality log — parameter lab per batch/sampel
+  // Quality log — parameter lab per batch/sampel (per tangki + per produk)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS quality_log (
       id SERIAL PRIMARY KEY,
       tanggal DATE NOT NULL,
+      tank_id INTEGER REFERENCES tank(id) ON DELETE SET NULL,
       produk TEXT,
       relasi_nama TEXT,
       sampel TEXT,
+      tonase REAL,
       ffa REAL,
       mni REAL,
       iv REAL,
       dobi REAL,
+      pv REAL,
+      anv REAL,
+      tox REAL,
+      cp REAL,
+      mp REAL,
       color TEXT,
       catatan TEXT,
       created_by INTEGER REFERENCES users(id),
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // Kolom tambahan (idempotent untuk tabel yg sudah dibuat)
+  for (const col of ['tank_id INTEGER', 'tonase REAL', 'pv REAL', 'anv REAL', 'tox REAL', 'cp REAL', 'mp REAL']) {
+    await pool.query(`ALTER TABLE quality_log ADD COLUMN IF NOT EXISTS ${col}`);
+  }
   // Pembayaran — catatan bayar per kontrak untuk aging piutang
   await pool.query(`
     CREATE TABLE IF NOT EXISTS pembayaran (
