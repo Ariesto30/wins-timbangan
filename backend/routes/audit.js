@@ -1387,4 +1387,157 @@ router.get('/duration-plausibility', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ─── B1. TARE PROFILE — profil berat kosong (tare) per truk + deteksi drift ─── */
+router.get('/tare-profile', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'AND ' + where.join(' AND ') : '';
+    const minTrip = parseInt(req.query.min_trip) || 6;
+
+    // Tare = berat kosong = LEAST(masuk, keluar). Ambil semua trip terurut waktu.
+    const rows = await db.all(`
+      SELECT no_polisi, truck_type,
+        LEAST(berat_masuk, berat_keluar) as tare,
+        GREATEST(berat_masuk, berat_keluar) as gross,
+        berat_netto_wins as netto, produk, tanggal_masuk, no_seri
+      FROM timbangan
+      WHERE no_polisi IS NOT NULL AND no_polisi != ''
+        AND berat_masuk > 0 AND berat_keluar > 0
+        ${w}
+      ORDER BY no_polisi, tanggal_masuk, no_seri
+    `, params);
+
+    const median = arr => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a, b) => a - b);
+      const m = Math.floor(s.length / 2);
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+    };
+
+    // Group per truk
+    const trucks = {};
+    rows.forEach(r => {
+      const t = Number(r.tare);
+      if (!trucks[r.no_polisi]) trucks[r.no_polisi] = { no_polisi: r.no_polisi, truck_type: r.truck_type, tares: [], trips: [] };
+      trucks[r.no_polisi].tares.push(t);
+      trucks[r.no_polisi].trips.push({ tare: t, tanggal: r.tanggal_masuk, netto: Number(r.netto), produk: r.produk, no_seri: r.no_seri });
+    });
+
+    const profiles = [];
+    Object.values(trucks).forEach(tk => {
+      if (tk.tares.length < minTrip) return;
+      const med = median(tk.tares);
+      const mad = median(tk.tares.map(t => Math.abs(t - med))) || 1;
+      const min = Math.min(...tk.tares);
+      const max = Math.max(...tk.tares);
+      const spread = max - min;
+      // Drift: median sepertiga awal vs sepertiga akhir (kronologis)
+      const n = tk.trips.length;
+      const third = Math.max(1, Math.floor(n / 3));
+      const early = median(tk.trips.slice(0, third).map(t => t.tare));
+      const late = median(tk.trips.slice(-third).map(t => t.tare));
+      const drift = late - early;
+      const driftPct = early > 0 ? +(drift / early * 100).toFixed(2) : 0;
+      // Outlier: tare menyimpang > 3 MAD dari median
+      const outliers = tk.trips.filter(t => Math.abs(t.tare - med) > 3 * mad);
+      // CV (koefisien variasi) sebagai % — stabilitas tare
+      const mean = tk.tares.reduce((a, b) => a + b, 0) / tk.tares.length;
+      const std = Math.sqrt(tk.tares.reduce((a, b) => a + (b - mean) ** 2, 0) / tk.tares.length);
+      const cv = mean > 0 ? +(std / mean * 100).toFixed(2) : 0;
+
+      // Status: stabil / drift / tidak stabil
+      let status = 'STABIL';
+      if (Math.abs(driftPct) > 3) status = 'DRIFT';
+      else if (cv > 3 || outliers.length > 0) status = 'TIDAK STABIL';
+
+      profiles.push({
+        no_polisi: tk.no_polisi, truck_type: tk.truck_type, trip: tk.tares.length,
+        tare_median: Math.round(med), mad: Math.round(mad), min, max, spread,
+        cv, drift: Math.round(drift), drift_pct: driftPct,
+        early_tare: Math.round(early), late_tare: Math.round(late),
+        outlier_count: outliers.length, status,
+        outliers: outliers.slice(0, 5).map(o => ({ no_seri: o.no_seri, tanggal: o.tanggal, tare: o.tare, dev: Math.round(o.tare - med) })),
+      });
+    });
+
+    // Urutkan: yang paling bermasalah dulu (drift besar / cv tinggi)
+    profiles.sort((a, b) => (Math.abs(b.drift_pct) + b.cv + b.outlier_count * 2) - (Math.abs(a.drift_pct) + a.cv + a.outlier_count * 2));
+
+    const summary = {
+      total_truck: profiles.length,
+      stabil: profiles.filter(p => p.status === 'STABIL').length,
+      drift: profiles.filter(p => p.status === 'DRIFT').length,
+      tidak_stabil: profiles.filter(p => p.status === 'TIDAK STABIL').length,
+      min_trip: minTrip,
+    };
+
+    res.json({ summary, profiles });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ─── B2. THROUGHPUT MONITOR — volume IN vs OUT per bulan + konversi ─── */
+router.get('/throughput', async (req, res) => {
+  try {
+    const { tahun } = req.query;
+    const pw = tahun ? `WHERE to_char(tanggal_masuk,'YYYY') = $1` : '';
+    const pp = tahun ? [tahun] : [];
+
+    // Arah produk dari master
+    const prods = await db.all(`SELECT kode, arah FROM produk`);
+    const arahMap = {};
+    prods.forEach(p => { arahMap[p.kode] = p.arah; });
+
+    // Volume per bulan per produk
+    const monthly = await db.all(`
+      SELECT to_char(tanggal_masuk, 'YYYY-MM') as bulan,
+        produk,
+        COUNT(*)::int as trip,
+        SUM(berat_netto_wins)::bigint as netto
+      FROM timbangan ${pw}
+      ${pw ? 'AND' : 'WHERE'} tanggal_masuk IS NOT NULL AND produk IS NOT NULL AND produk != ''
+      GROUP BY bulan, produk ORDER BY bulan, produk
+    `, pp);
+
+    // Pivot per bulan: total IN, total OUT, ratio
+    const byMonth = {};
+    monthly.forEach(m => {
+      m.netto = Number(m.netto);
+      const arah = arahMap[m.produk] || 'IN';
+      if (!byMonth[m.bulan]) byMonth[m.bulan] = { bulan: m.bulan, in_kg: 0, out_kg: 0, in_trip: 0, out_trip: 0, produk: {} };
+      byMonth[m.bulan].produk[m.produk] = { netto: m.netto, trip: m.trip, arah };
+      if (arah === 'IN') { byMonth[m.bulan].in_kg += m.netto; byMonth[m.bulan].in_trip += m.trip; }
+      else { byMonth[m.bulan].out_kg += m.netto; byMonth[m.bulan].out_trip += m.trip; }
+    });
+
+    const months = Object.values(byMonth).map(mm => ({
+      ...mm,
+      in_ton: +(mm.in_kg / 1000).toFixed(1),
+      out_ton: +(mm.out_kg / 1000).toFixed(1),
+      // Apparent conversion: OUT/IN (untuk refinery: produk jadi / bahan baku)
+      conv_pct: mm.in_kg > 0 ? +(mm.out_kg / mm.in_kg * 100).toFixed(1) : null,
+    })).sort((a, b) => a.bulan.localeCompare(b.bulan));
+
+    // Total per produk (keseluruhan)
+    const perProduk = await db.all(`
+      SELECT produk, COUNT(*)::int as trip, SUM(berat_netto_wins)::bigint as netto,
+        ROUND(AVG(berat_netto_wins)::numeric)::int as avg_netto
+      FROM timbangan ${pw}
+      ${pw ? 'AND' : 'WHERE'} produk IS NOT NULL AND produk != ''
+      GROUP BY produk ORDER BY netto DESC
+    `, pp);
+    perProduk.forEach(p => { p.netto = Number(p.netto); p.arah = arahMap[p.produk] || 'IN'; p.ton = +(p.netto / 1000).toFixed(1); });
+
+    const totIn = perProduk.filter(p => p.arah === 'IN').reduce((s, p) => s + p.netto, 0);
+    const totOut = perProduk.filter(p => p.arah === 'OUT').reduce((s, p) => s + p.netto, 0);
+    const summary = {
+      total_in_ton: +(totIn / 1000).toFixed(1),
+      total_out_ton: +(totOut / 1000).toFixed(1),
+      conv_pct: totIn > 0 ? +(totOut / totIn * 100).toFixed(1) : null,
+      months_count: months.length,
+    };
+
+    res.json({ summary, months, perProduk });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

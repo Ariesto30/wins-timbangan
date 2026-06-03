@@ -1035,6 +1035,8 @@ function AdvancedTab({ tahun, bulan }) {
     { id:'weekend',  label:'Weekend Spike',      icon: Clock,        desc:'Trip akhir pekan tak wajar' },
     { id:'velocity', label:'Turnaround Mustahil',icon: Truck,        desc:'Interval antar-trip < 30 menit' },
     { id:'duration', label:'Durasi & Jarak',     icon: TrendingDown, desc:'Durasi jembatan & jarak tak konsisten' },
+    { id:'tare',     label:'Profil Tare Truk',   icon: Truck,        desc:'Stabilitas berat kosong & drift' },
+    { id:'throughput',label:'Throughput Monitor',icon: BarChart3,    desc:'Volume IN vs OUT per bulan' },
   ]
   return (
     <div className="space-y-4">
@@ -1058,11 +1060,103 @@ function AdvancedTab({ tahun, bulan }) {
         })}
       </div>
 
-      {sub==='round'    && <RoundNumberAudit tahun={tahun} bulan={bulan} />}
-      {sub==='sequence' && <SequenceGapAudit />}
-      {sub==='weekend'  && <WeekendSpikeAudit tahun={tahun} bulan={bulan} />}
-      {sub==='velocity' && <VelocityAudit tahun={tahun} bulan={bulan} />}
-      {sub==='duration' && <DurationAudit tahun={tahun} bulan={bulan} />}
+      {sub==='round'      && <RoundNumberAudit tahun={tahun} bulan={bulan} />}
+      {sub==='sequence'   && <SequenceGapAudit />}
+      {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulan={bulan} />}
+      {sub==='velocity'   && <VelocityAudit tahun={tahun} bulan={bulan} />}
+      {sub==='duration'   && <DurationAudit tahun={tahun} bulan={bulan} />}
+      {sub==='tare'       && <TareProfileAudit tahun={tahun} bulan={bulan} />}
+      {sub==='throughput' && <ThroughputAudit tahun={tahun} />}
+    </div>
+  )
+}
+
+/* B1 — Tare Profile per Truk */
+function TareProfileAudit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); api.get('/audit/tare-profile', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  const s = d.summary
+  const badge = st => st==='STABIL' ? <span className="badge-success">STABIL</span> : st==='DRIFT' ? <span className="badge-warning">DRIFT</span> : <span className="badge-danger">TIDAK STABIL</span>
+  return (
+    <div className="space-y-4">
+      <div className="card bg-indigo-50 border-indigo-200 flex items-start gap-3">
+        <Truck className="text-indigo-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-indigo-700">
+          <strong>Profil Tare Truk</strong> — Berat kosong (tare) tiap truk seharusnya stabil. <strong>DRIFT</strong> = tare bergeser bertahap (kemungkinan modifikasi/manipulasi timbang). <strong>TIDAK STABIL</strong> = variasi tare besar (CV &gt; 3% atau ada outlier). Patut diverifikasi fisik.
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiMini label="Truk Dianalisis" value={s.total_truck} />
+        <KpiMini label="Tare Stabil" value={s.stabil} accent="green" />
+        <KpiMini label="Drift Terdeteksi" value={s.drift} accent={s.drift > 0 ? 'orange' : 'green'} />
+        <KpiMini label="Tidak Stabil" value={s.tidak_stabil} accent={s.tidak_stabil > 0 ? 'red' : 'green'} />
+      </div>
+
+      <Section title="Profil tare per truk" desc={`Min ${s.min_trip} trip. Diurutkan dari yang paling perlu diperiksa (drift + variasi + outlier tertinggi)`}>
+        {d.profiles.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Belum ada truk dengan trip cukup</div> :
+        <TableLite headers={['No. Polisi','Jenis','Trip','Tare Median','CV%','Drift (Awal→Akhir)','Outlier','Status']} rows={d.profiles.map(p => [
+          <span className="font-mono font-medium">{p.no_polisi}</span>,
+          <span className="text-xs text-gray-500">{p.truck_type}</span>,
+          p.trip,
+          <span className="font-mono">{p.tare_median?.toLocaleString('id-ID')}</span>,
+          <span className={`font-bold ${p.cv > 3 ? 'text-red-600' : p.cv > 1.5 ? 'text-orange-500' : 'text-gray-500'}`}>{p.cv}%</span>,
+          <span className="text-xs">{p.early_tare?.toLocaleString('id-ID')} → {p.late_tare?.toLocaleString('id-ID')} <span className={Math.abs(p.drift_pct) > 3 ? 'text-red-600 font-bold' : 'text-gray-400'}>({p.drift_pct > 0 ? '+' : ''}{p.drift_pct}%)</span></span>,
+          p.outlier_count > 0 ? <span className="font-bold text-orange-600">{p.outlier_count}</span> : <span className="text-gray-300">0</span>,
+          badge(p.status)
+        ])} />}
+      </Section>
+    </div>
+  )
+}
+
+/* B2 — Throughput Monitor */
+function ThroughputAudit({ tahun }) {
+  const [d, setD] = useState(null)
+  useEffect(() => { setD(null); api.get('/audit/throughput', { params:{ tahun } }).then(r => setD(r.data)) }, [tahun])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  const s = d.summary
+  const chart = d.months.map(m => ({ bulan: m.bulan.slice(2), in_ton: m.in_ton, out_ton: m.out_ton }))
+  return (
+    <div className="space-y-4">
+      <div className="card bg-teal-50 border-teal-200 flex items-start gap-3">
+        <BarChart3 className="text-teal-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-teal-700">
+          <strong>Throughput Monitor</strong> — Volume bahan baku masuk (IN) vs produk keluar (OUT) per bulan. Rasio konversi OUT/IN membantu cross-check dengan mass balance refinery. <em>Catatan: ini volume transportasi, bukan yield proses refinery.</em>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <KpiMini label="Total IN (bahan baku)" value={`${s.total_in_ton?.toLocaleString('id-ID')} t`} />
+        <KpiMini label="Total OUT (produk)" value={`${s.total_out_ton?.toLocaleString('id-ID')} t`} />
+        <KpiMini label="Konversi OUT/IN" value={s.conv_pct != null ? `${s.conv_pct}%` : '–'} />
+      </div>
+
+      <div className="card">
+        <h3 className="text-sm font-bold text-gray-700 mb-3">Volume IN vs OUT per Bulan (ton)</h3>
+        <ResponsiveContainer width="100%" height={260}>
+          <BarChart data={chart} margin={{ top:10,right:10,left:-10,bottom:0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+            <XAxis dataKey="bulan" tick={{ fill:'#64748b', fontSize:10 }} />
+            <YAxis tick={{ fill:'#64748b', fontSize:10 }} />
+            <Tooltip contentStyle={tt} formatter={(v,n) => [v+' ton', n==='in_ton'?'IN (bahan baku)':'OUT (produk)']} />
+            <Legend wrapperStyle={{ fontSize:11 }} formatter={v => v==='in_ton' ? 'IN (bahan baku)' : 'OUT (produk)'} />
+            <Bar dataKey="in_ton" fill="#14b8a6" radius={[4,4,0,0]} />
+            <Bar dataKey="out_ton" fill="#f59e0b" radius={[4,4,0,0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <Section title="Volume per produk" desc="Total keseluruhan periode, dipisah arah IN/OUT">
+        <TableLite headers={['Produk','Arah','Trip','Total (ton)','Rata Netto/trip']} rows={d.perProduk.map(p => [
+          <span className="badge-neutral">{p.produk}</span>,
+          p.arah === 'IN' ? <span className="badge-success">IN</span> : <span className="badge-warning">OUT</span>,
+          p.trip,
+          <span className="font-mono font-semibold">{p.ton?.toLocaleString('id-ID')}</span>,
+          <span className="font-mono text-xs text-gray-500">{p.avg_netto?.toLocaleString('id-ID')} kg</span>
+        ])} />
+      </Section>
     </div>
   )
 }
