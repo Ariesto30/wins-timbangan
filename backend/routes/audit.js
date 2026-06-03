@@ -1734,4 +1734,64 @@ router.get('/concentration', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ─── D1-D3,D8. KONSISTENSI ARAH — arah fisik timbang vs arah produk ─── */
+router.get('/direction', async (req, res) => {
+  try {
+    const { where, params } = buildPeriode(req);
+    const w = where.length ? 'AND ' + where.join(' AND ') : '';
+
+    // Arah master per produk
+    const prods = await db.all(`SELECT kode, arah FROM produk`);
+    const arahMap = {};
+    prods.forEach(p => { arahMap[p.kode] = p.arah || 'IN'; });
+
+    const rows = await db.all(`
+      SELECT id, no_seri, no_polisi, truck_type, relasi_nama, transportir, produk,
+        berat_masuk, berat_keluar, berat_netto_wins, tanggal_masuk
+      FROM timbangan
+      WHERE berat_masuk > 0 AND berat_keluar > 0 ${w}
+      ORDER BY tanggal_masuk DESC, no_seri DESC
+    `, params);
+
+    const flagged = [];
+    let flat = 0;
+    const byProduk = {};
+    rows.forEach(r => {
+      const arahMaster = arahMap[r.produk] || 'IN';
+      const arahFisik = r.berat_masuk > r.berat_keluar ? 'IN' : r.berat_keluar > r.berat_masuk ? 'OUT' : 'FLAT';
+      byProduk[r.produk] = byProduk[r.produk] || { produk: r.produk, arah_master: arahMaster, total: 0, terbalik: 0, flat: 0 };
+      byProduk[r.produk].total++;
+      if (arahFisik === 'FLAT') {
+        flat++; byProduk[r.produk].flat++;
+        flagged.push({ ...r, arah_master: arahMaster, arah_fisik: arahFisik, severity: 'CRITICAL', alasan: 'Berat masuk = keluar (netto 0)' });
+      } else if (arahFisik !== arahMaster) {
+        byProduk[r.produk].terbalik++;
+        flagged.push({ ...r, arah_master: arahMaster, arah_fisik: arahFisik, severity: 'CRITICAL', alasan: `Produk ${arahMaster} tapi pola fisik ${arahFisik} (kemungkinan masuk/keluar tertukar)` });
+      }
+    });
+
+    const summary = {
+      total: rows.length,
+      terbalik: flagged.filter(f => f.alasan.includes('tertukar')).length,
+      flat,
+      flagged: flagged.length,
+      ok: rows.length - flagged.length,
+    };
+    res.json({ summary, flagged: flagged.slice(0, 200), byProduk: Object.values(byProduk).filter(p => p.terbalik > 0 || p.flat > 0) });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* POST /direction/fix — tukar masuk<->keluar untuk daftar id (perbaikan terkontrol) */
+router.post('/direction/fix', requireRole('admin', 'manajer'), async (req, res) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.filter(x => Number.isInteger(x)) : [];
+    if (ids.length === 0) return res.status(400).json({ error: 'Daftar id kosong' });
+    // Tukar masuk<->keluar; netto generated tetap (ABS)
+    const r = await db.run(
+      `UPDATE timbangan SET berat_masuk = berat_keluar, berat_keluar = berat_masuk, updated_at = NOW()
+       WHERE id = ANY($1::int[])`, [ids]);
+    res.json({ message: `${r.changes} trip diperbaiki (masuk<->keluar ditukar)`, fixed: r.changes });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

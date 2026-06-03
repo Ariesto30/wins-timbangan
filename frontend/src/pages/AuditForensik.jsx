@@ -1030,6 +1030,7 @@ function TableLite({ headers, rows }) {
 function AdvancedTab({ tahun, bulan }) {
   const [sub, setSub] = useState('round')
   const SUBS = [
+    { id:'direction',label:'Konsistensi Arah',   icon: AlertOctagon, desc:'Arah timbang vs jenis produk' },
     { id:'round',    label:'Round-Number Bias',  icon: Hash,         desc:'Netto dibulatkan 000/500/00' },
     { id:'sequence', label:'Sequence Gap',       icon: Activity,     desc:'No. Seri yang hilang' },
     { id:'weekend',  label:'Weekend Spike',      icon: Clock,        desc:'Trip akhir pekan tak wajar' },
@@ -1064,6 +1065,7 @@ function AdvancedTab({ tahun, bulan }) {
         })}
       </div>
 
+      {sub==='direction'  && <DirectionAudit tahun={tahun} bulan={bulan} />}
       {sub==='round'      && <RoundNumberAudit tahun={tahun} bulan={bulan} />}
       {sub==='sequence'   && <SequenceGapAudit />}
       {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulan={bulan} />}
@@ -1344,6 +1346,103 @@ function ThroughputAudit({ tahun }) {
           <span className="font-mono font-semibold">{p.ton?.toLocaleString('id-ID')}</span>,
           <span className="font-mono text-xs text-gray-500">{p.avg_netto?.toLocaleString('id-ID')} kg</span>
         ])} />
+      </Section>
+    </div>
+  )
+}
+
+/* D — Konsistensi Arah Timbang */
+function DirectionAudit({ tahun, bulan }) {
+  const [d, setD] = useState(null)
+  const [sel, setSel] = useState({})
+  const [fixing, setFixing] = useState(false)
+  function load() { setD(null); setSel({}); api.get('/audit/direction', { params:{ tahun, bulan } }).then(r => setD(r.data)).catch(e => setD({ error: e.response?.data?.error || e.message })) }
+  useEffect(() => { load() }, [tahun, bulan])
+  if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
+  if (d.error) return <div className="card bg-red-50 border-red-200 text-center py-8"><div className="text-red-600 font-semibold">Gagal memuat</div><div className="text-xs text-gray-500">{d.error}</div></div>
+  const s = d.summary
+
+  const swappable = d.flagged.filter(f => f.alasan.includes('tertukar'))
+  const allSel = swappable.length > 0 && swappable.every(f => sel[f.id])
+  const selCount = Object.values(sel).filter(Boolean).length
+  function toggleAll() { if (allSel) setSel({}); else setSel(Object.fromEntries(swappable.map(f => [f.id, true]))) }
+
+  async function fix() {
+    const ids = Object.entries(sel).filter(([, v]) => v).map(([k]) => parseInt(k))
+    if (ids.length === 0) return
+    if (!confirm(`Tukar masuk↔keluar untuk ${ids.length} trip? Netto tidak berubah, arah jadi benar.`)) return
+    setFixing(true)
+    try { const r = await api.post('/audit/direction/fix', { ids }); alert(r.data.message); load() }
+    catch (e) { alert(e.response?.data?.error || 'Gagal') } finally { setFixing(false) }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="card bg-red-50 border-red-200 flex items-start gap-3">
+        <AlertOctagon className="text-red-600 flex-shrink-0 mt-0.5" size={20}/>
+        <div className="text-xs text-red-700">
+          <strong>Konsistensi Arah Timbang</strong> — Produk OUT (RBDPL/RBDPS/PFAD) harus <strong>berat keluar &gt; masuk</strong>; produk IN (CPO/BE/B-40) harus <strong>masuk &gt; keluar</strong>. Arah terbalik = kemungkinan kolom masuk/keluar tertukar saat input. Netto tetap benar (ABS), tapi arah & tare jadi salah. <em>Centang baris lalu klik "Perbaiki" untuk menukar otomatis.</em>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiMini label="Total Trip" value={s.total?.toLocaleString('id-ID')} />
+        <KpiMini label="Arah Terbalik" value={s.terbalik} accent={s.terbalik > 0 ? 'red' : 'green'} />
+        <KpiMini label="Berat Sama (netto 0)" value={s.flat} accent={s.flat > 0 ? 'red' : 'green'} />
+        <KpiMini label="Konsisten" value={s.ok?.toLocaleString('id-ID')} accent="green" />
+      </div>
+
+      {d.byProduk.length > 0 && (
+        <Section title="Ringkasan per produk" desc="Produk dengan trip arah-terbalik">
+          <TableLite headers={['Produk','Arah Seharusnya','Total','Terbalik','% Terbalik']} rows={d.byProduk.map(p => [
+            <span className="badge-neutral">{p.produk}</span>,
+            <span className={`font-bold ${p.arah_master==='OUT' ? 'text-amber-600' : 'text-teal-600'}`}>{p.arah_master}</span>,
+            p.total, <span className="font-bold text-red-600">{p.terbalik}</span>,
+            <span className="font-bold text-red-600">{(p.terbalik/p.total*100).toFixed(1)}%</span>
+          ])} />
+        </Section>
+      )}
+
+      {swappable.length > 0 && (
+        <div className="card bg-amber-50 border-amber-200 flex items-center justify-between flex-wrap gap-2">
+          <span className="text-xs text-amber-700"><strong>{selCount}</strong> dari {swappable.length} trip terpilih untuk diperbaiki</span>
+          <div className="flex gap-2">
+            <button onClick={toggleAll} className="btn-secondary text-xs">{allSel ? 'Batal pilih semua' : 'Pilih semua'}</button>
+            <button onClick={fix} disabled={fixing || selCount === 0} className="btn-primary text-xs flex items-center gap-1">
+              {fixing ? 'Memperbaiki...' : `Perbaiki ${selCount} trip (tukar M↔K)`}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <Section title={`Detail trip arah-terbalik (${d.flagged.length})`} desc="Centang untuk pilih. Netto tidak berubah saat diperbaiki.">
+        {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Semua arah timbang konsisten</div> :
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead><tr className="border-b border-gray-200 bg-gray-50">
+              <th className="table-header w-8"></th>
+              {['Seri','Polisi','Produk','Arah(seharusnya→fisik)','Masuk','Keluar','Netto','Alasan'].map(h => <th key={h} className="table-header">{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {d.flagged.map(f => {
+                const canFix = f.alasan.includes('tertukar')
+                return (
+                  <tr key={f.id} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="table-cell">{canFix && <input type="checkbox" checked={!!sel[f.id]} onChange={e => setSel(s => ({ ...s, [f.id]: e.target.checked }))} />}</td>
+                    <td className="table-cell font-mono text-xs">{f.no_seri}</td>
+                    <td className="table-cell font-mono text-xs">{f.no_polisi}</td>
+                    <td className="table-cell"><span className="badge-neutral">{f.produk}</span></td>
+                    <td className="table-cell text-xs"><span className="text-teal-600">{f.arah_master}</span> → <span className="text-red-600 font-bold">{f.arah_fisik}</span></td>
+                    <td className="table-cell font-mono text-xs">{f.berat_masuk?.toLocaleString('id-ID')}</td>
+                    <td className="table-cell font-mono text-xs">{f.berat_keluar?.toLocaleString('id-ID')}</td>
+                    <td className="table-cell font-mono text-xs font-semibold">{f.berat_netto_wins?.toLocaleString('id-ID')}</td>
+                    <td className="table-cell text-[11px] text-gray-500 max-w-xs">{f.alasan}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>}
       </Section>
     </div>
   )

@@ -31,6 +31,22 @@ export default function InputTimbangan() {
     ? Math.abs(parseInt(form.berat_masuk) - parseInt(form.berat_keluar))
     : null
 
+  // Validasi arah timbang: arah produk vs pola fisik masuk/keluar
+  const arahProduk = produkList.find(p => p.kode === form.produk)?.arah || null
+  const m = parseInt(form.berat_masuk), k = parseInt(form.berat_keluar)
+  let arahWarning = null
+  if (arahProduk && !isNaN(m) && !isNaN(k) && m !== k) {
+    const arahFisik = m > k ? 'IN' : 'OUT'
+    if (arahFisik !== arahProduk) {
+      arahWarning = arahProduk === 'OUT'
+        ? `Produk ${form.produk} (keluar/outbound) seharusnya berat KELUAR > MASUK, tapi masuk (${m.toLocaleString('id-ID')}) > keluar (${k.toLocaleString('id-ID')}). Kemungkinan kolom tertukar.`
+        : `Produk ${form.produk} (masuk/inbound) seharusnya berat MASUK > KELUAR, tapi keluar (${k.toLocaleString('id-ID')}) > masuk (${m.toLocaleString('id-ID')}). Kemungkinan kolom tertukar.`
+    }
+  }
+  function swapWeights() {
+    setForm(f => ({ ...f, berat_masuk: f.berat_keluar, berat_keluar: f.berat_masuk }))
+  }
+
   useEffect(() => {
     api.get('/relasi').then(r => setRelasi(r.data))
     api.get('/produk').then(r => setProdukList(r.data))
@@ -205,12 +221,22 @@ export default function InputTimbangan() {
             </div>
           </div>
           {netto !== null && (
-            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg ${netto >= 0 ? 'bg-primary-900/20 border border-primary-700/40' : 'bg-red-50 border border-red-700/40'}`}>
-              <Calculator size={16} className={netto >= 0 ? 'text-purple-600' : 'text-red-600'} />
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-primary-900/20 border border-primary-700/40">
+              <Calculator size={16} className="text-purple-600" />
               <span className="text-sm">
-                Berat Netto PT WINS: <strong className={netto >= 0 ? 'text-purple-700' : 'text-red-700'}>{netto.toLocaleString('id-ID')} kg</strong>
+                Berat Netto PT WINS: <strong className="text-purple-700">{netto.toLocaleString('id-ID')} kg</strong>
                 {form.berat_relasi && <span className="ml-3 text-gray-500">Selisih dengan relasi: <strong className={netto - form.berat_relasi > 0 ? 'text-yellow-700' : 'text-blue-700'}>{(netto - parseInt(form.berat_relasi || 0)).toLocaleString('id-ID')} kg</strong></span>}
               </span>
+            </div>
+          )}
+          {arahWarning && (
+            <div className="flex items-start gap-3 px-4 py-3 rounded-lg bg-amber-50 border border-amber-300 mt-2">
+              <span className="text-amber-600 text-lg leading-none">⚠</span>
+              <div className="flex-1">
+                <div className="text-sm text-amber-800 font-medium">Peringatan arah timbang</div>
+                <div className="text-xs text-amber-700 mt-0.5">{arahWarning}</div>
+              </div>
+              <button type="button" onClick={swapWeights} className="btn-secondary text-xs whitespace-nowrap flex-shrink-0">Tukar Masuk↔Keluar</button>
             </div>
           )}
         </div>
