@@ -9,6 +9,8 @@ import DataTimbangan from './pages/DataTimbangan'
 import Kontrak from './pages/Kontrak'
 import Laporan from './pages/Laporan'
 import Armada from './pages/Armada'
+import AuditForensik from './pages/AuditForensik'
+import RefineryReconciliation from './pages/RefineryReconciliation'
 import Pengguna from './pages/Pengguna'
 
 function PrivateRoute({ children }) {
@@ -17,7 +19,7 @@ function PrivateRoute({ children }) {
 
 function Layout({ children }) {
   return (
-    <div className="flex min-h-screen bg-wins-dark">
+    <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       <main className="flex-1 p-6 overflow-auto min-w-0">
         {children}
@@ -38,6 +40,8 @@ export default function App() {
       <Route path="/kontrak" element={<PrivateRoute><Layout><Kontrak /></Layout></PrivateRoute>} />
       <Route path="/laporan" element={<PrivateRoute><Layout><Laporan /></Layout></PrivateRoute>} />
       <Route path="/armada" element={<PrivateRoute><Layout><Armada /></Layout></PrivateRoute>} />
+      <Route path="/audit" element={<PrivateRoute><Layout><AuditForensik /></Layout></PrivateRoute>} />
+      <Route path="/refinery" element={<PrivateRoute><Layout><RefineryReconciliation /></Layout></PrivateRoute>} />
       <Route path="/pengguna" element={<PrivateRoute><Layout><Pengguna /></Layout></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

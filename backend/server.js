@@ -23,6 +23,7 @@ app.use('/api/reports', require('./routes/reports'));
 app.use('/api/kontrak', require('./routes/kontrak'));
 app.use('/api/armada', require('./routes/armada'));
 app.use('/api/audit', require('./routes/audit'));
+app.use('/api/refinery', require('./routes/refinery'));
 
 // Master data
 app.get('/api/relasi', authenticate, async (req, res) => {

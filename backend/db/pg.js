@@ -2,8 +2,13 @@
  * Koneksi Postgres pool + helper async query.
  * Kompatibel dengan style better-sqlite3 untuk minimize perubahan di route files.
  */
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const bcrypt = require('bcryptjs');
+
+// Fix timezone bug: pgsql DATE (OID 1082) default di-konversi ke Date object UTC midnight
+// yang menggeser hari saat di-display di timezone lokal. Solusi: return as string apa adanya.
+types.setTypeParser(1082, (val) => val); // 1082 = DATE
+types.setTypeParser(1114, (val) => val); // 1114 = TIMESTAMP (without timezone)
 
 const connStr = process.env.DATABASE_URL;
 if (!connStr) {
@@ -119,6 +124,36 @@ async function initDB() {
       jatuh_tempo_dp DATE,
       arah TEXT DEFAULT 'IN',
       catatan TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // Refinery mass-balance / raw & stock balancing per periode cut-off
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS refinery_balance (
+      id SERIAL PRIMARY KEY,
+      periode_label TEXT NOT NULL,
+      tgl_start DATE,
+      tgl_end DATE,
+      -- Bahan baku CPO (MT)
+      cpo_received REAL DEFAULT 0,
+      cpo_processed REAL DEFAULT 0,
+      cpo_stock REAL DEFAULT 0,
+      cpo_reject REAL DEFAULT 0,
+      cpo_lost_pct REAL DEFAULT 0.5,
+      -- Produk fraksinasi (MT)
+      olein_gross REAL DEFAULT 0,
+      olein_dispatch REAL DEFAULT 0,
+      olein_stock REAL DEFAULT 0,
+      olein_reject REAL DEFAULT 0,
+      stearin_gross REAL DEFAULT 0,
+      stearin_dispatch REAL DEFAULT 0,
+      stearin_stock REAL DEFAULT 0,
+      stearin_reject REAL DEFAULT 0,
+      pfad REAL DEFAULT 0,
+      rbdpo REAL DEFAULT 0,
+      catatan TEXT,
+      created_by INTEGER REFERENCES users(id),
       created_at TIMESTAMP DEFAULT NOW(),
       updated_at TIMESTAMP DEFAULT NOW()
     );
