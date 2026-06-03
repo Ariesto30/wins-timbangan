@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from 'recharts'
-import { Shield, AlertTriangle, TrendingDown, Clock, Truck, Users, FileSearch, Activity, Hash, Zap, AlertOctagon, Settings, ChevronRight, ChevronDown, Copy, MapPin, Save, BarChart3, UserCheck, ExternalLink } from 'lucide-react'
+import { Shield, AlertTriangle, TrendingDown, Clock, Truck, Users, FileSearch, Activity, Hash, Zap, AlertOctagon, Settings, ChevronRight, ChevronDown, Copy, MapPin, Save, BarChart3, UserCheck, ExternalLink, X } from 'lucide-react'
 import api, { fmt } from '../utils/api'
 
 const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
