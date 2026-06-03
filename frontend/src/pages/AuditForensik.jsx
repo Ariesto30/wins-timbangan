@@ -1084,9 +1084,20 @@ function TableLite({ headers, rows }) {
   )
 }
 
+/* Tombol drill-down — buka modal data timbangan */
+function DrillBtn({ onClick, children, mono = true, className = '' }) {
+  return (
+    <button onClick={onClick} className={`${mono ? 'font-mono ' : ''}text-purple-600 hover:text-purple-800 underline decoration-dotted ${className}`}>
+      {children}
+    </button>
+  )
+}
+
 /* ──────────────── FORENSIK+ : 5 AUDIT LANJUTAN ──────────────── */
 function AdvancedTab({ tahun, bulan }) {
   const [sub, setSub] = useState('round')
+  const [drill, setDrill] = useState(null)
+  const onDrill = (title, params) => setDrill({ title, params: { ...params, tahun, bulan } })
   const SUBS = [
     { id:'direction',label:'Konsistensi Arah',   icon: AlertOctagon, desc:'Arah timbang vs jenis produk' },
     { id:'truckclass',label:'Konsistensi Truk',  icon: Truck,        desc:'Label jenis truk vs kelas asli (netto)' },
@@ -1126,23 +1137,25 @@ function AdvancedTab({ tahun, bulan }) {
 
       {sub==='direction'  && <DirectionAudit tahun={tahun} bulan={bulan} />}
       {sub==='truckclass' && <TruckClassAudit tahun={tahun} bulan={bulan} />}
-      {sub==='round'      && <RoundNumberAudit tahun={tahun} bulan={bulan} />}
+      {sub==='round'      && <RoundNumberAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
       {sub==='sequence'   && <SequenceGapAudit />}
-      {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulan={bulan} />}
-      {sub==='velocity'   && <VelocityAudit tahun={tahun} bulan={bulan} />}
-      {sub==='duration'   && <DurationAudit tahun={tahun} bulan={bulan} />}
-      {sub==='tare'       && <TareProfileAudit tahun={tahun} bulan={bulan} />}
+      {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='velocity'   && <VelocityAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='duration'   && <DurationAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='tare'       && <TareProfileAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
       {sub==='throughput' && <ThroughputAudit tahun={tahun} />}
-      {sub==='sameday'    && <SameDayPairAudit tahun={tahun} bulan={bulan} />}
+      {sub==='sameday'    && <SameDayPairAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
       {sub==='benford2'   && <Benford2Audit tahun={tahun} bulan={bulan} />}
-      {sub==='drivertruck'&& <DriverTruckAudit tahun={tahun} bulan={bulan} />}
-      {sub==='concentration' && <ConcentrationAudit tahun={tahun} bulan={bulan} />}
+      {sub==='drivertruck'&& <DriverTruckAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='concentration' && <ConcentrationAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+
+      {drill && <TripDetailModal title={drill.title} params={drill.params} onClose={() => setDrill(null)} />}
     </div>
   )
 }
 
 /* A2 — Same-Day Pair */
-function SameDayPairAudit({ tahun, bulan }) {
+function SameDayPairAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/same-day-pair', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1163,7 +1176,7 @@ function SameDayPairAudit({ tahun, bulan }) {
       <Section title={`Pasangan trip hari sama (${d.flagged.length})`} desc="Diurutkan dari netto paling identik. Selisih 0 kg + jam berdekatan = paling perlu diperiksa">
         {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Tidak ada pasangan mencurigakan</div> :
         <TableLite headers={['No. Polisi','Tanggal','Netto A','Netto B','Selisih','Jam A','Jam B','Relasi A','Relasi B']} rows={d.flagged.map(f => [
-          <span className="font-mono text-xs">{f.no_polisi}</span>,
+          <DrillBtn className="text-xs" onClick={() => onDrill(`Trip ${f.no_polisi} · ${f.tanggal_masuk}`, { no_polisi: f.no_polisi })}>{f.no_polisi}</DrillBtn>,
           <span className="text-xs text-gray-500">{f.tanggal_masuk}</span>,
           <span className="font-mono text-xs">{f.netto_a?.toLocaleString('id-ID')}</span>,
           <span className="font-mono text-xs">{f.netto_b?.toLocaleString('id-ID')}</span>,
@@ -1221,7 +1234,7 @@ function Benford2Audit({ tahun, bulan }) {
 }
 
 /* A7 — Driver-Truck Mismatch */
-function DriverTruckAudit({ tahun, bulan }) {
+function DriverTruckAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/driver-truck', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1243,7 +1256,7 @@ function DriverTruckAudit({ tahun, bulan }) {
       {d.manyDrivers.length > 0 && (
         <Section title={`Truk dengan ≥4 driver berbeda (${d.manyDrivers.length})`} desc="Truk yang dikemudikan banyak orang">
           <TableLite headers={['No. Polisi','Total Trip','Jml Driver','Driver (trip)']} rows={d.manyDrivers.map(t => [
-            <span className="font-mono font-medium">{t.no_polisi}</span>, t.total,
+            <DrillBtn onClick={() => onDrill(`Riwayat trip — ${t.no_polisi}`, { no_polisi: t.no_polisi })}>{t.no_polisi}</DrillBtn>, t.total,
             <span className="font-bold text-orange-600">{t.driver_count}</span>,
             <span className="text-xs text-gray-500">{t.drivers.slice(0,5).map(dr => `${dr.driver} (${dr.trip})`).join(', ')}{t.drivers.length>5?'...':''}</span>
           ])} />
@@ -1253,7 +1266,7 @@ function DriverTruckAudit({ tahun, bulan }) {
       {d.rareTrips.length > 0 && (
         <Section title={`Pasangan driver-truk langka (${d.rareTrips.length})`} desc="Driver yang jarang di truk dengan driver dominan jelas">
           <TableLite headers={['No. Polisi','Driver Langka','Trip','% dari Truk','Driver Dominan']} rows={d.rareTrips.map(r => [
-            <span className="font-mono text-xs">{r.no_polisi}</span>,
+            <DrillBtn className="text-xs" onClick={() => onDrill(`Trip ${r.no_polisi} · driver ${r.driver}`, { no_polisi: r.no_polisi, driver: r.driver })}>{r.no_polisi}</DrillBtn>,
             <span className="text-xs">{r.driver}</span>,
             r.trip,
             <span className="font-bold text-orange-500">{r.pct}%</span>,
@@ -1265,7 +1278,7 @@ function DriverTruckAudit({ tahun, bulan }) {
       {d.manyTrucks.length > 0 && (
         <Section title={`Driver dengan ≥4 truk berbeda (${d.manyTrucks.length})`} desc="Driver yang berpindah banyak truk">
           <TableLite headers={['Driver','Jml Truk','Total Trip']} rows={d.manyTrucks.map(t => [
-            <span className="text-xs font-medium">{t.driver}</span>,
+            <DrillBtn mono={false} className="text-xs" onClick={() => onDrill(`Trip driver ${t.driver}`, { driver: t.driver })}>{t.driver}</DrillBtn>,
             <span className="font-bold text-orange-600">{t.trucks}</span>, t.total
           ])} />
         </Section>
@@ -1279,7 +1292,7 @@ function DriverTruckAudit({ tahun, bulan }) {
 }
 
 /* A11 — Concentration / Collusion */
-function ConcentrationAudit({ tahun, bulan }) {
+function ConcentrationAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/concentration', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1300,7 +1313,7 @@ function ConcentrationAudit({ tahun, bulan }) {
       <Section title={`Vendor konsentrasi tinggi (${d.flagged.length})`} desc="Transportir yang >60% tripnya lewat 1 operator & ≤2 operator total">
         {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Tidak ada konsentrasi vendor-operator mencurigakan</div> :
         <TableLite headers={['Transportir','Total Trip','Operator Dominan','Relasi','Konsentrasi','Jml Operator']} rows={d.flagged.map(f => [
-          <span className="font-medium text-xs">{f.transportir}</span>, f.total,
+          <DrillBtn mono={false} className="text-xs" onClick={() => onDrill(`Trip transportir ${f.transportir}`, { transportir: f.transportir })}>{f.transportir}</DrillBtn>, f.total,
           <span className="text-xs">{f.top_operator}</span>,
           <span className="text-xs text-gray-500">{f.top_relasi}</span>,
           <span className="font-bold text-purple-600">{f.concentration}%</span>,
@@ -1322,7 +1335,7 @@ function ConcentrationAudit({ tahun, bulan }) {
 }
 
 /* B1 — Tare Profile per Truk */
-function TareProfileAudit({ tahun, bulan }) {
+function TareProfileAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/tare-profile', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1347,7 +1360,7 @@ function TareProfileAudit({ tahun, bulan }) {
       <Section title="Profil tare per truk" desc={`Min ${s.min_trip} trip. Diurutkan dari yang paling perlu diperiksa (drift + variasi + outlier tertinggi)`}>
         {d.profiles.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Belum ada truk dengan trip cukup</div> :
         <TableLite headers={['No. Polisi','Jenis','Trip','Tare Median','CV%','Drift (Awal→Akhir)','Outlier','Status']} rows={d.profiles.map(p => [
-          <span className="font-mono font-medium">{p.no_polisi}</span>,
+          <DrillBtn onClick={() => onDrill(`Riwayat trip — ${p.no_polisi}`, { no_polisi: p.no_polisi })}>{p.no_polisi}</DrillBtn>,
           <span className="text-xs text-gray-500">{p.truck_type}</span>,
           p.trip,
           <span className="font-mono">{p.tare_median?.toLocaleString('id-ID')}</span>,
@@ -1599,7 +1612,7 @@ function TruckClassAudit({ tahun, bulan }) {
 }
 
 /* A1 — Round-Number Bias */
-function RoundNumberAudit({ tahun, bulan }) {
+function RoundNumberAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/round-number', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1643,23 +1656,25 @@ function RoundNumberAudit({ tahun, bulan }) {
       <Section title="Operator dengan rate pembulatan tertinggi" desc="Penimbang yang sering menghasilkan netto kelipatan 100 — bisa kebiasaan, bisa estimasi manual">
         {d.perOperator.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Belum ada data</div> :
         <TableLite headers={['Penimbang','Trip','Round (00)','% Round']} rows={d.perOperator.map(o => [
-          <span className="font-medium">{o.nama}</span>, o.trip, o.round_00,
+          <DrillBtn mono={false} onClick={() => onDrill(`Trip netto kelipatan 100 — operator ${o.nama}`, { penimbang: o.nama, round: 1 })}>{o.nama}</DrillBtn>,
+          o.trip, o.round_00,
           <span className={`font-bold ${o.pct_00 > 5 ? 'text-red-600' : o.pct_00 > 2 ? 'text-orange-500' : 'text-gray-500'}`}>{o.pct_00}%</span>
         ])} />}
       </Section>
 
-      <Section title="Truk dengan rate pembulatan tertinggi" desc="No. Polisi dengan netto kelipatan 100 terbanyak">
+      <Section title="Truk dengan rate pembulatan tertinggi" desc="No. Polisi dengan netto kelipatan 100 terbanyak — klik plat untuk lihat trip-nya">
         {d.perTruck.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Belum ada data</div> :
         <TableLite headers={['No. Polisi','Trip','Round (00)','% Round']} rows={d.perTruck.map(o => [
-          <span className="font-mono font-medium">{o.nama}</span>, o.trip, o.round_00,
+          <DrillBtn onClick={() => onDrill(`Trip netto kelipatan 100 — ${o.nama}`, { no_polisi: o.nama, round: 1 })}>{o.nama}</DrillBtn>,
+          o.trip, o.round_00,
           <span className={`font-bold ${o.pct_00 > 5 ? 'text-red-600' : o.pct_00 > 2 ? 'text-orange-500' : 'text-gray-500'}`}>{o.pct_00}%</span>
         ])} />}
       </Section>
 
-      <Section title={`Contoh trip netto bulat (${d.samples.length})`} desc="Netto persis kelipatan 1000 atau 500 — paling mencurigakan untuk diperiksa fisik">
+      <Section title={`Contoh trip netto bulat (${d.samples.length})`} desc="Netto persis kelipatan 1000 atau 500 — klik no. seri untuk detail">
         {d.samples.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Tidak ada ✓</div> :
         <TableLite headers={['No. Seri','No. Polisi','Relasi','Produk','Netto','Penimbang','Tanggal']} rows={d.samples.slice(0,30).map(s => [
-          <span className="font-mono text-xs">{s.no_seri}</span>,
+          <DrillBtn className="text-xs" onClick={() => onDrill(`Trip seri ${s.no_seri}`, { seri: s.no_seri })}>{s.no_seri}</DrillBtn>,
           <span className="font-mono text-xs">{s.no_polisi}</span>,
           <span className="text-xs">{s.relasi_nama}</span>,
           <span className="badge-neutral">{s.produk}</span>,
@@ -1711,7 +1726,7 @@ function SequenceGapAudit() {
 }
 
 /* A4 — Weekend Spike */
-function WeekendSpikeAudit({ tahun, bulan }) {
+function WeekendSpikeAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/weekend-spike', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1755,7 +1770,7 @@ function WeekendSpikeAudit({ tahun, bulan }) {
       <Section title="Operator paling aktif di akhir pekan" desc="Penimbang dengan porsi trip weekend tertinggi">
         {d.operators.length === 0 ? <div className="text-center text-gray-400 py-6 text-sm">Belum ada data</div> :
         <TableLite headers={['Penimbang','Total Trip','Trip Weekend','% Weekend']} rows={d.operators.map(o => [
-          <span className="font-medium">{o.nama}</span>, o.total, o.weekend,
+          <DrillBtn mono={false} onClick={() => onDrill(`Trip operator ${o.nama}`, { penimbang: o.nama })}>{o.nama}</DrillBtn>, o.total, o.weekend,
           <span className={`font-bold ${o.pct_weekend > 40 ? 'text-red-600' : o.pct_weekend > 25 ? 'text-orange-500' : 'text-gray-500'}`}>{o.pct_weekend}%</span>
         ])} />}
       </Section>
@@ -1773,7 +1788,7 @@ function WeekendSpikeAudit({ tahun, bulan }) {
 }
 
 /* A5 — Velocity / Turnaround */
-function VelocityAudit({ tahun, bulan }) {
+function VelocityAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/velocity', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1796,7 +1811,7 @@ function VelocityAudit({ tahun, bulan }) {
       {d.perTruck.length > 0 && (
         <Section title="Truk dengan turnaround mustahil berulang" desc="Semakin sering, semakin perlu diperiksa">
           <TableLite headers={['No. Polisi','Jumlah Kejadian','Jeda Terpendek']} rows={d.perTruck.map(t => [
-            <span className="font-mono font-medium">{t.no_polisi}</span>,
+            <DrillBtn onClick={() => onDrill(`Riwayat trip — ${t.no_polisi}`, { no_polisi: t.no_polisi })}>{t.no_polisi}</DrillBtn>,
             <span className="font-bold text-red-600">{t.count}×</span>,
             <span className="text-orange-600">{t.min_gap} menit</span>
           ])} />
@@ -1806,7 +1821,7 @@ function VelocityAudit({ tahun, bulan }) {
       <Section title={`Detail trip ter-flag (${d.flagged.length})`} desc="Pasangan trip dengan jeda mustahil">
         {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Tidak ada turnaround mustahil — semua jeda wajar</div> :
         <TableLite headers={['No. Polisi','Jeda','Relasi (kini)','Relasi (sebelum)','Produk','Netto','Tanggal','Jam']} rows={d.flagged.map(f => [
-          <span className="font-mono text-xs">{f.no_polisi}</span>,
+          <DrillBtn className="text-xs" onClick={() => onDrill(`Riwayat trip — ${f.no_polisi}`, { no_polisi: f.no_polisi })}>{f.no_polisi}</DrillBtn>,
           <span className="font-bold text-red-600">{f.gap_menit} mnt</span>,
           <span className="text-xs">{f.relasi_nama}</span>,
           <span className="text-xs text-gray-400">{f.prev_relasi}</span>,
@@ -1821,7 +1836,7 @@ function VelocityAudit({ tahun, bulan }) {
 }
 
 /* A8 — Duration & Distance Plausibility */
-function DurationAudit({ tahun, bulan }) {
+function DurationAudit({ tahun, bulan, onDrill }) {
   const [d, setD] = useState(null)
   useEffect(() => { setD(null); api.get('/audit/duration-plausibility', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
@@ -1845,7 +1860,7 @@ function DurationAudit({ tahun, bulan }) {
       <Section title={`Trip durasi janggal (${d.flagged.length})`} desc={`Durasi > ${s.max_jam} jam atau nol/negatif (jam keluar ≤ jam masuk)`}>
         {d.flagged.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Semua durasi wajar</div> :
         <TableLite headers={['No. Seri','No. Polisi','Relasi','Jam Masuk','Jam Keluar','Durasi','Netto']} rows={d.flagged.map(f => [
-          <span className="font-mono text-xs">{f.no_seri}</span>,
+          <DrillBtn className="text-xs" onClick={() => onDrill(`Trip seri ${f.no_seri}`, { seri: f.no_seri })}>{f.no_seri}</DrillBtn>,
           <span className="font-mono text-xs">{f.no_polisi}</span>,
           <span className="text-xs">{f.relasi_nama}</span>,
           <span className="font-mono text-xs">{f.jam_masuk}</span>,

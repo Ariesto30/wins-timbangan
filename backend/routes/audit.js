@@ -1892,28 +1892,30 @@ router.post('/truck-class/fix', requireRole('admin', 'manajer'), async (req, res
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-/* ─── DRILL-DOWN — ambil data timbangan lengkap (by seri-list / by netto+produk) ─── */
+/* ─── DRILL-DOWN — ambil data timbangan lengkap dgn filter fleksibel ─── */
 router.get('/trips', async (req, res) => {
   try {
-    const { seri, netto, produk, no_polisi } = req.query;
     const cols = `id, no_seri, tanggal_masuk, jam_masuk, jam_keluar, no_polisi, produk,
       relasi_nama, berat_masuk, berat_keluar, berat_netto_wins, penimbang, driver,
       no_kontrak, do_number, transportir`;
-    let rows = [];
-    if (seri) {
-      const list = String(seri).split(',').map(s => s.trim()).filter(Boolean);
-      if (list.length === 0) return res.json({ rows: [] });
-      rows = await db.all(`SELECT ${cols} FROM timbangan WHERE no_seri = ANY($1) ORDER BY tanggal_masuk, no_seri`, [list]);
-    } else if (netto != null && netto !== '') {
-      const p = [parseInt(netto)]; let q = `SELECT ${cols} FROM timbangan WHERE berat_netto_wins = $1`;
-      if (produk) { q += ` AND produk = $2`; p.push(produk); }
-      q += ` ORDER BY tanggal_masuk, no_polisi LIMIT 300`;
-      rows = await db.all(q, p);
-    } else if (no_polisi) {
-      rows = await db.all(`SELECT ${cols} FROM timbangan WHERE no_polisi = $1 ORDER BY tanggal_masuk DESC LIMIT 300`, [no_polisi]);
-    } else {
-      return res.status(400).json({ error: 'Sertakan parameter seri / netto / no_polisi' });
-    }
+    const { seri, ids, netto, produk, no_polisi, penimbang, driver, transportir, relasi, round, tahun, bulan } = req.query;
+    const w = []; const p = []; let n = 1;
+
+    if (seri) { const list = String(seri).split(',').map(s => s.trim()).filter(Boolean); w.push(`no_seri = ANY($${n++})`); p.push(list); }
+    if (ids) { const list = String(ids).split(',').map(x => parseInt(x)).filter(Number.isInteger); w.push(`id = ANY($${n++})`); p.push(list); }
+    if (netto != null && netto !== '') { w.push(`berat_netto_wins = $${n++}`); p.push(parseInt(netto)); }
+    if (produk) { w.push(`produk = $${n++}`); p.push(produk); }
+    if (no_polisi) { w.push(`no_polisi = $${n++}`); p.push(no_polisi); }
+    if (penimbang) { w.push(`penimbang = $${n++}`); p.push(penimbang); }
+    if (driver) { w.push(`driver = $${n++}`); p.push(driver); }
+    if (transportir) { w.push(`transportir = $${n++}`); p.push(transportir); }
+    if (relasi) { w.push(`relasi_nama = $${n++}`); p.push(relasi); }
+    if (round === '1') { w.push(`berat_netto_wins % 100 = 0 AND berat_netto_wins > 0`); }
+    if (tahun) { w.push(`to_char(tanggal_masuk,'YYYY') = $${n++}`); p.push(tahun); }
+    if (bulan && bulan !== 'Semua') { w.push(`to_char(tanggal_masuk,'MM') = $${n++}`); p.push(String(bulan).padStart(2, '0')); }
+
+    if (w.length === 0) return res.status(400).json({ error: 'Sertakan minimal 1 filter' });
+    const rows = await db.all(`SELECT ${cols} FROM timbangan WHERE ${w.join(' AND ')} ORDER BY tanggal_masuk DESC, no_seri LIMIT 500`, p);
     res.json({ rows });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
