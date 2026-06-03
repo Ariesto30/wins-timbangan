@@ -28,7 +28,7 @@ export default function InputTimbangan() {
   const [loading, setLoading] = useState(false)
 
   const netto = form.berat_masuk && form.berat_keluar
-    ? parseInt(form.berat_masuk) - parseInt(form.berat_keluar)
+    ? Math.abs(parseInt(form.berat_masuk) - parseInt(form.berat_keluar))
     : null
 
   useEffect(() => {
@@ -47,6 +47,14 @@ export default function InputTimbangan() {
     }
   }, [id])
 
+  /* Auto-generate no_seri_relasi = PRODUK + NO_SERI + KODE_RELASI */
+  function buildNoSeriRelasi(f) {
+    if (!f.produk || !f.no_seri || !f.relasi_id) return ''
+    const r = relasi.find(x => String(x.id) === String(f.relasi_id))
+    if (!r || !r.kode) return ''
+    return `${f.produk}${f.no_seri}${r.kode}`.replace(/\s+/g,'')
+  }
+
   function set(field) {
     return e => {
       const val = e.target.value
@@ -57,6 +65,11 @@ export default function InputTimbangan() {
           next.relasi_nama = r?.nama || ''
           next.lokasi_pengiriman = r?.lokasi || ''
           next.transportir = r?.transportir || ''
+        }
+        // Auto-regenerate no_seri_relasi setiap kali produk/no_seri/relasi_id berubah
+        if (['produk', 'no_seri', 'relasi_id'].includes(field)) {
+          const auto = buildNoSeriRelasi(next)
+          if (auto) next.no_seri_relasi = auto
         }
         return next
       })
@@ -89,22 +102,22 @@ export default function InputTimbangan() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate(-1)} className="text-slate-400 hover:text-white">
+        <button onClick={() => navigate(-1)} className="text-gray-500 hover:text-gray-800">
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-white">{isEdit ? 'Edit Data Timbangan' : 'Input Data Timbangan'}</h1>
-          <p className="text-sm text-slate-500">Isi formulir data timbangan harian</p>
+          <h1 className="text-xl font-bold text-gray-800">{isEdit ? 'Edit Data Timbangan' : 'Input Data Timbangan'}</h1>
+          <p className="text-sm text-gray-400">Isi formulir data timbangan harian</p>
         </div>
       </div>
 
-      {error && <div className="bg-red-900/20 border border-red-700/50 text-red-400 px-4 py-3 rounded-lg text-sm">{error}</div>}
-      {success && <div className="bg-green-900/20 border border-green-700/50 text-green-400 px-4 py-3 rounded-lg text-sm">{success}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>}
+      {success && <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">{success}</div>}
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Section: Info Dasar */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-semibold text-slate-300 border-b border-wins-border pb-2">Informasi Dasar</h2>
+          <h2 className="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">Informasi Dasar</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Tanggal Masuk *</label>
@@ -115,8 +128,9 @@ export default function InputTimbangan() {
               <input className="input" placeholder="000001" value={form.no_seri} onChange={set('no_seri')} />
             </div>
             <div>
-              <label className="label">No. Seri Relasi</label>
-              <input className="input" placeholder="Misal: CPO000001KMP" value={form.no_seri_relasi} onChange={set('no_seri_relasi')} />
+              <label className="label">No. Seri Relasi <span className="text-purple-600 normal-case text-[10px] ml-1">(otomatis dari Produk + No.Seri + Kode Relasi)</span></label>
+              <input className="input" placeholder="Otomatis: CPO000001KMP" value={form.no_seri_relasi} onChange={set('no_seri_relasi')} />
+              <p className="text-[10px] text-gray-400 mt-1">Bisa diedit manual kalau perlu format khusus</p>
             </div>
             <div>
               <label className="label">No. Polisi Kendaraan</label>
@@ -135,7 +149,7 @@ export default function InputTimbangan() {
 
         {/* Section: Relasi & Produk */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-semibold text-slate-300 border-b border-wins-border pb-2">Relasi & Produk</h2>
+          <h2 className="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">Relasi & Produk</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Relasi / Pembeli *</label>
@@ -175,7 +189,7 @@ export default function InputTimbangan() {
 
         {/* Section: Berat */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-semibold text-slate-300 border-b border-wins-border pb-2">Data Timbangan</h2>
+          <h2 className="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">Data Timbangan</h2>
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="label">Berat Masuk (Kg) *</label>
@@ -191,11 +205,11 @@ export default function InputTimbangan() {
             </div>
           </div>
           {netto !== null && (
-            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg ${netto >= 0 ? 'bg-primary-900/20 border border-primary-700/40' : 'bg-red-900/20 border border-red-700/40'}`}>
-              <Calculator size={16} className={netto >= 0 ? 'text-primary-400' : 'text-red-400'} />
+            <div className={`flex items-center gap-2 px-4 py-3 rounded-lg ${netto >= 0 ? 'bg-primary-900/20 border border-primary-700/40' : 'bg-red-50 border border-red-700/40'}`}>
+              <Calculator size={16} className={netto >= 0 ? 'text-purple-600' : 'text-red-600'} />
               <span className="text-sm">
-                Berat Netto PT WINS: <strong className={netto >= 0 ? 'text-primary-300' : 'text-red-300'}>{netto.toLocaleString('id-ID')} kg</strong>
-                {form.berat_relasi && <span className="ml-3 text-slate-400">Selisih dengan relasi: <strong className={netto - form.berat_relasi > 0 ? 'text-yellow-300' : 'text-blue-300'}>{(netto - parseInt(form.berat_relasi || 0)).toLocaleString('id-ID')} kg</strong></span>}
+                Berat Netto PT WINS: <strong className={netto >= 0 ? 'text-purple-700' : 'text-red-700'}>{netto.toLocaleString('id-ID')} kg</strong>
+                {form.berat_relasi && <span className="ml-3 text-gray-500">Selisih dengan relasi: <strong className={netto - form.berat_relasi > 0 ? 'text-yellow-700' : 'text-blue-700'}>{(netto - parseInt(form.berat_relasi || 0)).toLocaleString('id-ID')} kg</strong></span>}
               </span>
             </div>
           )}
@@ -203,7 +217,7 @@ export default function InputTimbangan() {
 
         {/* Section: Waktu & Personil */}
         <div className="card space-y-4">
-          <h2 className="text-sm font-semibold text-slate-300 border-b border-wins-border pb-2">Waktu & Personil</h2>
+          <h2 className="text-sm font-semibold text-gray-700 border-b border-gray-200 pb-2">Waktu & Personil</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="label">Jam Masuk</label>
