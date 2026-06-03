@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff } from 'lucide-react'
+import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight } from 'lucide-react'
 import { getUser, logout, hasRole } from '../utils/auth'
 
 const nav = [
@@ -22,7 +22,7 @@ const nav = [
   { to: '/pengguna',   icon: Users,           label: 'Pengguna',         roles: ['admin'] },
 ]
 
-export default function Sidebar({ pinned = false, onTogglePin, onNavigate }) {
+export default function Sidebar({ pinned = false, onTogglePin, onSetMini, onNavigate }) {
   const navigate = useNavigate()
   const user = getUser()
 
@@ -39,12 +39,20 @@ export default function Sidebar({ pinned = false, onTogglePin, onNavigate }) {
           <div className="text-sm font-extrabold text-white tracking-wider">WINS TIMBANGAN</div>
           <div className="text-[10px] font-semibold tracking-widest text-orange-400">PT. WIJAYA INTI NUSANTARA SAWIT</div>
         </div>
-        {onTogglePin && (
-          <button onClick={onTogglePin} title={pinned ? 'Lepas pin (auto-hide)' : 'Pin sidebar (tetap terbuka)'}
-            className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${pinned ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500 hover:text-white hover:bg-wins-border'}`}>
-            {pinned ? <Pin size={14} /> : <PinOff size={14} />}
-          </button>
-        )}
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {onSetMini && (
+            <button onClick={onSetMini} title="Ciutkan ke mini-rail (ikon saja)"
+              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-wins-border transition-colors">
+              <PanelLeftClose size={14} />
+            </button>
+          )}
+          {onTogglePin && (
+            <button onClick={onTogglePin} title={pinned ? 'Lepas pin (auto-hide)' : 'Pin sidebar (tetap terbuka)'}
+              className={`p-1.5 rounded-lg transition-colors ${pinned ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500 hover:text-white hover:bg-wins-border'}`}>
+              {pinned ? <Pin size={14} /> : <PinOff size={14} />}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Nav */}
@@ -95,6 +103,51 @@ export default function Sidebar({ pinned = false, onTogglePin, onNavigate }) {
           Keluar
         </button>
       </div>
+    </aside>
+  )
+}
+
+/* Mini-rail ikon-only (mode collapsed ala VSCode activity bar) */
+export function MiniRail({ onExpand, onNavigate }) {
+  const navigate = useNavigate()
+  const user = getUser()
+  const items = nav.filter(n => n.section || hasRole(...n.roles))
+  return (
+    <aside className="w-[60px] h-full bg-wins-card border-r border-wins-border flex flex-col items-center py-3">
+      {/* Logo / expand */}
+      <button onClick={onExpand} title="Perluas sidebar" className="w-10 h-10 rounded-xl flex items-center justify-center mb-3 text-white font-extrabold flex-shrink-0" style={{ background: 'linear-gradient(135deg,#fb923c,#f59e0b)' }}>
+        W
+      </button>
+      <div className="w-7 border-t border-wins-border mb-2" />
+
+      {/* Nav ikon + tooltip */}
+      <nav className="flex-1 flex flex-col items-center gap-1 overflow-y-auto w-full px-2 no-scrollbar">
+        {items.map((n, i) => {
+          if (n.section) return <div key={`s${i}`} className="w-5 border-t border-wins-border/60 my-1.5" />
+          const Icon = n.icon
+          return (
+            <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={onNavigate} title={n.label}
+              className={({ isActive }) => `group relative w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${isActive ? 'text-white shadow-lg shadow-orange-500/20' : 'text-slate-400 hover:text-white hover:bg-wins-border'}`}
+              style={({ isActive }) => isActive ? { background: 'linear-gradient(135deg,#fb923c,#f59e0b)' } : {}}>
+              <Icon size={18} />
+              {/* Tooltip */}
+              <span className="pointer-events-none absolute left-12 px-2 py-1 rounded-md bg-slate-900 text-white text-xs whitespace-nowrap opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all z-50 shadow-lg">
+                {n.label}
+              </span>
+            </NavLink>
+          )
+        })}
+      </nav>
+
+      {/* Avatar + logout */}
+      <div className="w-7 border-t border-wins-border my-2" />
+      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0 mb-2" title={user?.nama || user?.username}>
+        {(user?.nama || user?.username || 'A')[0].toUpperCase()}
+      </div>
+      <button onClick={() => { logout(); navigate('/login') }} title="Keluar" className="group relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-wins-border transition-colors flex-shrink-0">
+        <LogOut size={15} />
+        <span className="pointer-events-none absolute left-11 px-2 py-1 rounded-md bg-slate-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">Keluar</span>
+      </button>
     </aside>
   )
 }

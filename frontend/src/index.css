@@ -78,6 +78,10 @@
 .tank-bubble { animation: tankBubble 5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .tank-liquid-surface, .tank-shimmer, .tank-bubble { animation: none; } .tank-card { transition: none; } }
 
+/* Sembunyikan scrollbar (mini-rail) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
 /* Scrollbar light */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #f8fafc; }
