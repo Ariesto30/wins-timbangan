@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet } from 'lucide-react'
+import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff } from 'lucide-react'
 import { getUser, logout, hasRole } from '../utils/auth'
 
 const nav = [
@@ -22,7 +22,7 @@ const nav = [
   { to: '/pengguna',   icon: Users,           label: 'Pengguna',         roles: ['admin'] },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ pinned = false, onTogglePin, onNavigate }) {
   const navigate = useNavigate()
   const user = getUser()
 
@@ -32,11 +32,19 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="w-60 min-h-screen bg-wins-card border-r border-wins-border flex flex-col flex-shrink-0">
+    <aside className="w-60 h-full bg-wins-card border-r border-wins-border flex flex-col flex-shrink-0">
       {/* Header — title singkat, warna senada sidebar */}
-      <div className="px-4 py-5 border-b border-wins-border">
-        <div className="text-sm font-extrabold text-white tracking-wider">WINS TIMBANGAN</div>
-        <div className="text-[10px] font-semibold tracking-widest text-orange-400">PT. WIJAYA INTI NUSANTARA SAWIT</div>
+      <div className="px-4 py-5 border-b border-wins-border flex items-start justify-between">
+        <div>
+          <div className="text-sm font-extrabold text-white tracking-wider">WINS TIMBANGAN</div>
+          <div className="text-[10px] font-semibold tracking-widest text-orange-400">PT. WIJAYA INTI NUSANTARA SAWIT</div>
+        </div>
+        {onTogglePin && (
+          <button onClick={onTogglePin} title={pinned ? 'Lepas pin (auto-hide)' : 'Pin sidebar (tetap terbuka)'}
+            className={`p-1.5 rounded-lg transition-colors flex-shrink-0 ${pinned ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500 hover:text-white hover:bg-wins-border'}`}>
+            {pinned ? <Pin size={14} /> : <PinOff size={14} />}
+          </button>
+        )}
       </div>
 
       {/* Nav */}
@@ -49,6 +57,7 @@ export default function Sidebar() {
               key={n.to}
               to={n.to}
               end={n.to === '/'}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   isActive
