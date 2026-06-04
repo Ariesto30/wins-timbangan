@@ -339,8 +339,18 @@ function RefTank({ code, mt, pct, color, light, fill = 82, w = 116 }) {
         {/* cairan + animasi */}
         <g clipPath={`url(#${uid}c)`}>
           <rect x="16" y={surf} width={w-32} height={BOT - surf + 2} fill={`url(#${uid}l)`} />
-          <ellipse className="ref-liquid" cx={w/2} cy={surf} rx={w/2-16} ry="8" fill={light} opacity="0.95" />
-          <ellipse className="ref-liquid" cx={w/2} cy={surf} rx={w/2-26} ry="5" fill="#ffffff" opacity="0.22" />
+          {/* permukaan bergejolak (meniscus) */}
+          <ellipse className="tank-liquid-surface" cx={w/2} cy={surf} rx={w/2-16} ry="8" fill={light} opacity="0.95" />
+          <ellipse className="tank-liquid-surface" cx={w/2} cy={surf} rx={w/2-26} ry="5" fill="#ffffff" opacity="0.22" />
+          {/* shimmer menyapu */}
+          <rect className="tank-shimmer" x="16" y={surf} width={(w-32)*0.42} height={BOT - surf} fill="rgba(255,255,255,.35)" />
+          {/* buih naik */}
+          {fill > 15 && <>
+            <circle className="tank-bubble" cx={w*0.38} cy={BOT-6} r="2.1" fill="rgba(255,255,255,.6)" style={{ animationDelay: '0s' }} />
+            <circle className="tank-bubble" cx={w*0.56} cy={BOT-4} r="1.5" fill="rgba(255,255,255,.5)" style={{ animationDelay: '1.4s' }} />
+            <circle className="tank-bubble" cx={w*0.48} cy={BOT-8} r="1.8" fill="rgba(255,255,255,.55)" style={{ animationDelay: '2.8s' }} />
+            <circle className="tank-bubble" cx={w*0.64} cy={BOT-5} r="1.3" fill="rgba(255,255,255,.5)" style={{ animationDelay: '3.6s' }} />
+          </>}
           {/* sabuk baja horizontal (struktur tangki) */}
           {[0.4, 0.68].map((g,i)=>(<line key={i} x1="16" y1={BOT-g*H} x2={w-16} y2={BOT-g*H} stroke="rgba(15,23,42,.12)" strokeWidth="1" />))}
         </g>
