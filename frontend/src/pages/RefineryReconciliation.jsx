@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, Plus, Save, Trash2, AlertTriangle, CheckCircle, Scale, Droplet, TrendingDown, X } from 'lucide-react'
+import { Factory, Plus, Save, Trash2, AlertTriangle, CheckCircle, Scale, Droplet, TrendingDown, X, Package, Truck, Bell, Cog, BarChart3, ArrowUpFromLine } from 'lucide-react'
 import api from '../utils/api'
 
 const BLANK = {
@@ -72,26 +72,24 @@ export default function RefineryReconciliation() {
         <button onClick={startNew} className="btn-primary flex items-center gap-2"><Plus size={15} /> Periode Baru</button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        {/* List periode */}
-        <div className="lg:col-span-1 space-y-2">
-          {list.length === 0 && <div className="card text-center text-sm text-gray-400 py-8">Belum ada periode.<br />Klik "Periode Baru".</div>}
+      {/* Chip pemilih periode (horizontal) */}
+      {list.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400 font-semibold">Periode:</span>
           {list.map(p => (
             <button key={p.id} onClick={() => { setSelId(p.id); setEditing(false) }}
-              className={`w-full text-left card hover:border-teal-300 transition-colors ${selId === p.id ? 'border-teal-400 bg-teal-50/40' : ''}`}>
-              <div className="font-semibold text-sm text-gray-800">{p.periode_label}</div>
-              <div className="text-xs text-gray-400 mt-0.5">{p.tgl_start || '?'} → {p.tgl_end || '?'}</div>
-              <div className="text-xs text-teal-600 mt-1">CPO {fmtMt(p.cpo_received)} MT</div>
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${selId === p.id ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-gray-600 border-gray-200 hover:border-teal-300'}`}>
+              {p.periode_label} <span className={selId === p.id ? 'text-teal-100' : 'text-gray-400'}>· CPO {fmtMt(p.cpo_received)} MT</span>
             </button>
           ))}
         </div>
+      )}
 
-        {/* Detail / form */}
-        <div className="lg:col-span-3">
-          {editing ? <BalanceForm form={form} setForm={setForm} onSave={save} onCancel={() => setEditing(false)} saving={saving} isNew={editing === 'new'} />
-            : detail ? <ReconciliationView detail={detail} onEdit={startEdit} onDelete={del} />
-              : <div className="card text-center text-gray-400 py-16">Pilih periode di kiri, atau buat periode baru untuk mulai rekonsiliasi.</div>}
-        </div>
+      {/* Detail full-width */}
+      <div>
+        {editing ? <BalanceForm form={form} setForm={setForm} onSave={save} onCancel={() => setEditing(false)} saving={saving} isNew={editing === 'new'} />
+          : detail ? <ReconciliationView detail={detail} onEdit={startEdit} onDelete={del} />
+            : <div className="card text-center text-gray-400 py-16">Belum ada periode. Klik "Periode Baru" untuk mulai rekonsiliasi.</div>}
       </div>
     </div>
   )
@@ -209,8 +207,8 @@ function ReconciliationView({ detail, onEdit, onDelete }) {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
-            <button onClick={() => setView('twin')} className={`px-3 py-1.5 ${view==='twin' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>🏭 Digital Twin</button>
-            <button onClick={() => setView('ringkasan')} className={`px-3 py-1.5 ${view==='ringkasan' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>📊 Ringkasan</button>
+            <button onClick={() => setView('twin')} className={`px-3 py-1.5 flex items-center gap-1.5 ${view==='twin' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}><Factory size={13} /> Digital Twin</button>
+            <button onClick={() => setView('ringkasan')} className={`px-3 py-1.5 flex items-center gap-1.5 ${view==='ringkasan' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}><BarChart3 size={13} /> Ringkasan</button>
           </div>
           <button onClick={onEdit} className="btn-secondary text-sm">Edit</button>
           <button onClick={onDelete} className="text-red-500 hover:text-red-700 p-2"><Trash2 size={16} /></button>
@@ -389,9 +387,7 @@ function DigitalTwin({ r, a, tankSum }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3">
         {/* Scene proses */}
-        <div className="lg:col-span-2 rounded-xl ring-1 ring-slate-300 p-4 relative overflow-hidden"
-          style={{ background: 'linear-gradient(160deg,#f1f5f9,#e2e8f0)' }}>
-          <div className="absolute inset-0 opacity-[0.5] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(100,116,139,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.08) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
+        <div className="lg:col-span-2 rounded-xl ring-1 ring-slate-200 bg-white p-4 relative overflow-hidden">
           <div className="relative flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Refinery Process Flow</span>
             <span className="text-[10px] font-bold text-green-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> LIVE</span>
@@ -400,7 +396,7 @@ function DigitalTwin({ r, a, tankSum }) {
             {/* CPO received */}
             <RefTank code="CPO RECEIVED" mt={r.cpo_received} pct={100} color={C.cpo[0]} light={C.cpo[1]} fill={98} w={140} />
             <Pipe color={C.cpo[0]} h={26} />
-            <div className="px-4 py-2 rounded-lg bg-slate-800 text-white text-xs font-bold tracking-wide shadow">⚙ REFINERY PROCESS — olah {fmtMt(r.cpo_processed)} MT</div>
+            <div className="px-4 py-2 rounded-lg bg-slate-700 text-white text-xs font-bold tracking-wide shadow flex items-center gap-2"><Cog size={14} /> REFINERY PROCESS — olah {fmtMt(r.cpo_processed)} MT</div>
             {/* Split jadi PFAD + RBDPO + Reject */}
             <div className="flex items-start justify-center gap-2 mt-1">
               <Pipe color={C.pfad[0]} h={22} /><Pipe color={C.rbdpo[0]} h={22} /><Pipe color={C.reject[0]} h={22} />
@@ -460,13 +456,13 @@ function DigitalTwin({ r, a, tankSum }) {
       </div>
 
       {/* Bottom status bar */}
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 bg-slate-800 text-white text-xs">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 bg-white border-t border-slate-200 text-xs text-slate-600">
         <StatusItem label="Total Tank" value={tankSum ? `${tankSum.total_tank} Unit` : '–'} />
         <StatusItem label="Total Kapasitas" value={tankSum ? `${fmtMt(tankSum.total_kapasitas)} MT` : '–'} />
         <StatusItem label="Total Stok" value={tankSum ? `${fmtMt(tankSum.total_stok)} MT` : '–'} />
         <StatusItem label="Utilisasi" value={tankSum ? `${tankSum.util_pct}%` : '–'} />
-        <div className="flex items-center gap-1.5"><span className="text-slate-400">Alerts:</span><span className={`font-bold ${a.flags.length ? 'text-red-300' : 'text-green-300'}`}>🔔 {a.flags.length} Active</span></div>
-        <div className="flex items-center gap-1.5"><span className="text-slate-400">Status:</span><span className="font-bold text-green-300">✓ All Systems Normal</span></div>
+        <div className="flex items-center gap-1.5"><Bell size={13} className={a.flags.length ? 'text-red-500' : 'text-slate-400'} /><span className="text-slate-400">Alerts:</span><span className={`font-bold ${a.flags.length ? 'text-red-600' : 'text-green-600'}`}>{a.flags.length} Active</span></div>
+        <div className="flex items-center gap-1.5"><CheckCircle size={13} className="text-green-500" /><span className="font-bold text-green-600">All Systems Normal</span></div>
         <div className="ml-auto text-slate-400">Update: {r.updated_at ? new Date(r.updated_at).toLocaleString('id-ID') : '–'}</div>
       </div>
     </div>
@@ -488,8 +484,8 @@ function ProductTank({ code, mt, pct, colors, dispatch, stock }) {
     <div className="flex flex-col items-center">
       <RefTank code={code} mt={mt} pct={pct} color={colors[0]} light={colors[1]} fill={80} />
       <div className="flex gap-1 mt-1">
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">📤 {fmtMt(dispatch)}</span>
-        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">📦 {fmtMt(stock)}</span>
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 flex items-center gap-1"><ArrowUpFromLine size={9} /> {fmtMt(dispatch)}</span>
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 flex items-center gap-1"><Package size={9} /> {fmtMt(stock)}</span>
       </div>
     </div>
   )
@@ -507,7 +503,7 @@ function MiniBalance({ title, gross, reject, net, dispatch, stock, mismatch }) {
         <div className="flex justify-between"><span className="text-slate-400">Dispatch</span><span className="font-mono">{fmtMt(dispatch)}</span></div>
         <div className="flex justify-between"><span className="text-slate-400">Stock</span><span className="font-mono">{fmtMt(stock)}</span></div>
       </div>
-      <div className={`mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${bad ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>Δ {fmtMt(mismatch)} MT {bad ? '⚠' : '✓'}</div>
+      <div className={`mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold flex items-center gap-1 ${bad ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>{bad ? <AlertTriangle size={9} /> : <CheckCircle size={9} />} Δ {fmtMt(mismatch)} MT</div>
     </div>
   )
 }
