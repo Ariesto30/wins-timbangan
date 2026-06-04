@@ -227,10 +227,10 @@ function ReconciliationView({ detail, onEdit, onDelete }) {
           </div>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div><div className="text-xs text-gray-500">CPO Received (input)</div><div className="font-bold text-gray-800">{fmtMt(a.timbanganMatch.whiteboard_cpo)} MT</div></div>
-            <div><div className="text-xs text-gray-500">CPO IN (timbangan)</div><div className="font-bold text-gray-800">{fmtMt(a.timbanganMatch.timbangan_cpo_mt)} MT</div></div>
+            <div><div className="text-xs text-gray-500">CPO kumulatif s/d cut-off (timbangan)</div><div className="font-bold text-gray-800">{fmtMt(a.timbanganMatch.timbangan_cpo_mt)} MT</div></div>
             <div><div className="text-xs text-gray-500">Selisih</div><div className={`font-bold ${Math.abs(a.timbanganMatch.selisih_pct) > 3 ? 'text-orange-600' : 'text-green-600'}`}>{fmtMt(a.timbanganMatch.selisih)} MT ({a.timbanganMatch.selisih_pct}%)</div></div>
           </div>
-          <p className="text-[11px] text-gray-400 mt-2">Timbangan menjumlah semua produk arah IN pada rentang tanggal periode. Selisih besar = trip belum diinput / CPO termasuk stok awal di luar periode.</p>
+          <p className="text-[11px] text-gray-400 mt-2">CPO Received whiteboard = akumulasi CPO sejak awal operasi s/d tanggal cut-off (bukan volume periode). Timbangan menjumlah produk CPO hingga cut-off. Selisih kecil (&lt;1%) = tervalidasi.</p>
         </div>
       )}
 

@@ -97,15 +97,15 @@ function analyze(r, timbanganCpoMt) {
   };
 }
 
-// Ambil total CPO IN (MT) dari timbangan untuk periode tertentu
+// CPO Received di whiteboard = KUMULATIF sejak awal operasi s/d cut-off (tgl_end),
+// bukan volume periode. Jumlahkan produk CPO hingga tgl_end.
 async function timbanganCpoMt(tgl_start, tgl_end) {
-  if (!tgl_start || !tgl_end) return null;
+  if (!tgl_end) return null;
   const r = await db.get(`
     SELECT COALESCE(SUM(berat_netto_wins),0)::bigint as kg
-    FROM timbangan t
-    JOIN produk p ON p.kode = t.produk
-    WHERE p.arah = 'IN' AND t.tanggal_masuk >= $1 AND t.tanggal_masuk <= $2
-  `, [tgl_start, tgl_end]);
+    FROM timbangan
+    WHERE produk = 'CPO' AND tanggal_masuk <= $1
+  `, [tgl_end]);
   return Number(r.kg) / 1000;
 }
 
