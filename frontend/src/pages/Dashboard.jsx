@@ -6,12 +6,13 @@ import {
 } from 'recharts'
 import { TrendingUp, TrendingDown, RefreshCw, Filter, BarChart2, Box, Zap, RotateCcw } from 'lucide-react'
 import api, { fmt } from '../utils/api'
+import MonthRange from '../components/MonthRange'
 
 const BLUE = '#1565C0'
 const BLUE_LIGHT = '#2196F3'
 const TEAL = '#00897B'
-const PRODUK_COLORS = { CPO: '#1565C0', RBDPL: '#00BCD4', 'B-40': '#FFC107', BE: '#FF5722', PFAD: '#9C27B0' }
-const PRODUK_ORDER = ['CPO', 'RBDPL', 'B-40', 'BE', 'PFAD']
+const PRODUK_COLORS = { CPO: '#1565C0', RBDPL: '#00BCD4', RBDPS: '#0EA5E9', 'B-40': '#FFC107', BE: '#FF5722', PFAD: '#9C27B0' }
+const PRODUK_ORDER = ['CPO', 'RBDPL', 'RBDPS', 'B-40', 'BE', 'PFAD']
 
 const BLN_MAP = { '01':'Jan','02':'Feb','03':'Mar','04':'Apr','05':'Mei','06':'Jun','07':'Jul','08':'Agu','09':'Sep','10':'Okt','11':'Nov','12':'Des' }
 const monthLabel = (str) => {
@@ -21,25 +22,21 @@ const monthLabel = (str) => {
 }
 const TT = { backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,.1)' }
 
-/* ─── KPI CARD ───────────────────────────────────────── */
-function KpiCard({ label, value, sub, icon, accent = BLUE, pct }) {
-  const isNeg = pct != null && parseFloat(pct) < 0
+/* ─── KPI CARD (FULL GRADIENT) ───────────────────────── */
+function KpiCard({ label, value, sub, icon, gradient }) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 flex flex-col gap-1 min-w-0">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide leading-tight">{label}</span>
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: accent + '18' }}>
+    <div className="rounded-2xl shadow-lg p-4 flex flex-col gap-2 min-w-0 text-white relative overflow-hidden"
+      style={{ background: gradient }}>
+      <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10"></div>
+      <div className="absolute -right-8 -bottom-8 w-20 h-20 rounded-full bg-white/5"></div>
+      <div className="flex items-center justify-between relative z-10">
+        <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider leading-tight">{label}</span>
+        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
           {icon}
         </div>
       </div>
-      <div className="text-[26px] font-extrabold leading-tight truncate" style={{ color: accent }}>{value}</div>
-      {sub && <div className="text-[11px] text-gray-400 leading-tight">{sub}</div>}
-      {pct != null && (
-        <div className={`flex items-center gap-1 text-[11px] font-semibold leading-tight ${isNeg ? 'text-red-500' : 'text-green-500'}`}>
-          {isNeg ? <TrendingDown size={12}/> : <TrendingUp size={12}/>}
-          {isNeg ? '' : '+'}{pct}% vs prev
-        </div>
-      )}
+      <div className="text-[28px] font-extrabold leading-tight truncate text-white relative z-10">{value}</div>
+      {sub && <div className="text-[11px] text-white/75 leading-tight relative z-10">{sub}</div>}
     </div>
   )
 }
@@ -99,7 +96,8 @@ export default function Dashboard() {
 
   const [filters, setFilters] = useState({
     tahun: '',           // kosong = semua tahun (match dengan Excel)
-    bulan: 'Semua',
+    bulan_start: '',
+    bulan_end: '',
     produk: 'Semua',
     relasi_id: '',
     truck_type: 'Semua',
@@ -123,7 +121,8 @@ export default function Dashboard() {
     setLoading(true)
     const params = {
       tahun:      f.tahun || undefined,
-      bulan:      f.bulan !== 'Semua' ? f.bulan : undefined,
+      bulan_start: f.bulan_start || undefined,
+      bulan_end:  f.bulan_end || undefined,
       produk:     f.produk !== 'Semua' ? f.produk : undefined,
       relasi_id:  f.relasi_id || undefined,
       truck_type: f.truck_type !== 'Semua' ? f.truck_type : undefined,
@@ -140,7 +139,7 @@ export default function Dashboard() {
 
   function set(k) { return e => setFilters(f => ({ ...f, [k]: e.target.value })) }
   function resetFilter() {
-    setFilters({ tahun: filters.tahun, bulan: 'Semua', produk: 'Semua', relasi_id: '', truck_type: 'Semua', tgl_start: '', tgl_end: '' })
+    setFilters({ tahun: filters.tahun, bulan_start: '', bulan_end: '', produk: 'Semua', relasi_id: '', truck_type: 'Semua', tgl_start: '', tgl_end: '' })
   }
 
   const { kpi, byBulan, byRelasi, byProduk, top5Kendaraan, daily30, momPct, insights, prevNetto } = data || {}
@@ -182,7 +181,7 @@ export default function Dashboard() {
 
   // Filter chip indicator
   const activeFiltersCount = [
-    filters.bulan !== 'Semua',
+    !!(filters.bulan_start || filters.bulan_end),
     filters.produk !== 'Semua',
     filters.relasi_id !== '',
     filters.truck_type !== 'Semua',
@@ -277,11 +276,9 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-gray-500 font-semibold">Bulan</span>
-            <select className="text-xs border border-gray-200 rounded px-2 py-1.5 bg-white text-gray-700 focus:ring-1 focus:ring-blue-400 outline-none min-w-[100px]"
-              value={filters.bulan} onChange={set('bulan')}>
-              <option>Semua</option>
-              {Object.entries(BLN_MAP).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
+            <MonthRange start={filters.bulan_start} end={filters.bulan_end}
+              onStart={v => setFilters(f => ({ ...f, bulan_start: v }))}
+              onEnd={v => setFilters(f => ({ ...f, bulan_end: v }))} />
           </div>
 
           <div className="ml-auto flex items-center gap-3">
@@ -297,25 +294,27 @@ export default function Dashboard() {
 
         <div className="p-4 space-y-3">
 
-          {/* 6 KPI CARDS */}
+          {/* 6 KPI CARDS — full gradient */}
           <div className="grid grid-cols-6 gap-3">
             <KpiCard label="Total Netto (Ton)" value={fmt.tonRaw(totalNetto)}
               sub={prevNetto > 0 ? `vs Prev: ${(prevNetto / 1000).toFixed(0)} Ton` : 'Semua periode'}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke={BLUE} strokeWidth={2} className="w-5 h-5"><circle cx="12" cy="12" r="10" /><path d="M8 12h8M12 8v8" /></svg>}
-              accent={BLUE} pct={momPct} />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4M21 7v10l-9 4"/></svg>}
+              gradient="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)" />
             <KpiCard label="Total Netto (Kg)" value={totalNetto.toLocaleString('id-ID')} sub="Kg"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#00897B" strokeWidth={2} className="w-5 h-5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>}
-              accent="#00897B" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>}
+              gradient="linear-gradient(135deg, #10b981 0%, #047857 100%)" />
             <KpiCard label="Total Ritasi (Trip)" value={fmt.num(kpi?.total_trip)} sub="Trip"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#1976D2" strokeWidth={2} className="w-5 h-5"><path d="M1 3h15l4 8H1V3z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /></svg>}
-              accent="#1976D2" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><path d="M1 3h15l4 8H1V3z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /></svg>}
+              gradient="linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)" />
             <KpiCard label="Rata-rata / Trip" value={fmt.num(kpi?.avg_netto_trip)} sub="Kg / Trip"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#7B1FA2" strokeWidth={2} className="w-5 h-5"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48 2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48 2.83-2.83" /></svg>}
-              accent="#7B1FA2" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><path d="M3 12c0-1 1-2 2-2s2 1 2 2v6h10v-6c0-1 1-2 2-2s2 1 2 2M5 18v2M19 18v2M9 6l3-3 3 3M12 3v9"/></svg>}
+              gradient="linear-gradient(135deg, #ec4899 0%, #be185d 100%)" />
             <KpiCard label="Maks Netto / Trip" value={fmt.num(kpi?.maks_netto)} sub="Kg"
-              icon={<TrendingUp size={18} className="text-green-600" />} accent="#2E7D32" />
+              icon={<TrendingUp size={18} className="text-white" strokeWidth={2.5} />}
+              gradient="linear-gradient(135deg, #f97316 0%, #c2410c 100%)" />
             <KpiCard label="Min Netto / Trip" value={fmt.num(kpi?.min_netto)} sub="Kg"
-              icon={<TrendingDown size={18} className="text-red-500" />} accent="#C62828" />
+              icon={<TrendingDown size={18} className="text-white" strokeWidth={2.5} />}
+              gradient="linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)" />
           </div>
 
           {/* ROW 1: Berat Netto by Relasi (2/3) | Trend Monthly Netto (1/3) */}
@@ -326,9 +325,9 @@ export default function Dashboard() {
                   <BarChart data={relasiData} layout="vertical" margin={{ left: 0, right: 80, top: 8, bottom: 8 }}>
                     <defs>
                       <linearGradient id="barRelasiGrad" x1="0" y1="0" x2="1" y2="0">
-                        <stop offset="0%"   stopColor="#93c5fd" stopOpacity={1}/>
-                        <stop offset="55%"  stopColor="#60a5fa" stopOpacity={1}/>
-                        <stop offset="100%" stopColor="#3b82f6" stopOpacity={1}/>
+                        <stop offset="0%"   stopColor="#c4b5fd" stopOpacity={1}/>
+                        <stop offset="55%"  stopColor="#a78bfa" stopOpacity={1}/>
+                        <stop offset="100%" stopColor="#7c3aed" stopOpacity={1}/>
                       </linearGradient>
                     </defs>
                     <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v} />
@@ -349,18 +348,18 @@ export default function Dashboard() {
                 <AreaChart data={trendData} margin={{ left: 0, right: 15, top: 12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#3b82f6" stopOpacity={0.35} />
-                      <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.12} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                      <stop offset="5%"  stopColor="#a855f7" stopOpacity={0.4} />
+                      <stop offset="50%" stopColor="#a855f7" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v} />
                   <Tooltip contentStyle={TT} formatter={(v, _n, p) => [`${v.toLocaleString('id-ID')} ton (${p.payload.trip} trip)`, 'Netto']} />
-                  <Area type="monotone" dataKey="netto" stroke={BLUE} strokeWidth={2.5} fill="url(#blueGrad)"
-                    dot={{ fill: '#fff', stroke: BLUE, strokeWidth: 2, r: 3.5 }}
-                    activeDot={{ r: 6, fill: BLUE, stroke: '#fff', strokeWidth: 2 }}
+                  <Area type="monotone" dataKey="netto" stroke="#a855f7" strokeWidth={2.5} fill="url(#blueGrad)"
+                    dot={{ fill: '#fff', stroke: '#a855f7', strokeWidth: 2, r: 3.5 }}
+                    activeDot={{ r: 6, fill: '#a855f7', stroke: '#fff', strokeWidth: 2 }}
                     animationDuration={1600} animationEasing="ease-out" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -370,18 +369,28 @@ export default function Dashboard() {
           {/* ROW 2: 4 CHARTS — Trip Produk | Komposisi | Top 5 | Daily Netto */}
           <div className="grid grid-cols-4 gap-3">
             <ChartCard title="Trip by Produk" footer={`Total Trip  ${fmt.num(kpi?.total_trip)}`} height={290}>
-              <ResponsiveContainer width="100%" height={290}>
-                <BarChart data={produkData} layout="vertical" margin={{ left: 4, right: 45, top: 8, bottom: 8 }}>
-                  <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis type="category" dataKey="name" tick={{ fill: '#334155', fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} width={50} />
-                  <Tooltip contentStyle={TT} formatter={(v, _n, p) => [`${v} trip (${p.payload.netto} ton)`, p.payload.name]} cursor={{ fill: '#f1f5f9', opacity: 0.5 }} />
-                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={26}
-                    animationDuration={1200} animationEasing="ease-out" animationBegin={150}>
-                    {produkData.map((d, i) => <Cell key={i} fill={PRODUK_COLORS[d.name] || '#94a3b8'} />)}
-                    <LabelList dataKey="value" position="right" style={{ fill: '#1e293b', fontSize: 12, fontWeight: 700 }} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              <div className="space-y-3 px-2 py-3">
+                {produkData.map((d, i) => {
+                  const maxTrip = Math.max(...produkData.map(x => x.value))
+                  const pct = maxTrip > 0 ? (d.value / maxTrip) * 100 : 0
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (PRODUK_COLORS[d.name] || '#94a3b8') + '22' }}>
+                        <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: PRODUK_COLORS[d.name] || '#94a3b8' }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-gray-700">{d.name}</span>
+                          <span className="text-sm font-bold text-gray-800">{d.value}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: pct + '%', backgroundColor: PRODUK_COLORS[d.name] || '#94a3b8' }} />
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </ChartCard>
 
             <ChartCard title="Komposisi Produk (Ton)" height={290}>
@@ -410,20 +419,17 @@ export default function Dashboard() {
 
             <ChartCard title="Top 5 Kendaraan (Ton)" height={290}>
               <ResponsiveContainer width="100%" height={290}>
-                <BarChart data={top5Data} layout="vertical" margin={{ left: 4, right: 50, top: 12, bottom: 4 }}>
-                  <defs>
-                    <linearGradient id="tealGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%"  stopColor="#5eead4" stopOpacity={1}/>
-                      <stop offset="55%" stopColor="#2dd4bf" stopOpacity={1}/>
-                      <stop offset="100%" stopColor="#14b8a6" stopOpacity={1}/>
-                    </linearGradient>
-                  </defs>
+                <BarChart data={top5Data} layout="vertical" margin={{ left: 4, right: 60, top: 12, bottom: 4 }}>
                   <XAxis type="number" tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => (v / 1000).toFixed(0) + 'K'} />
                   <YAxis type="category" dataKey="name" tick={{ fill: '#334155', fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} width={75} />
-                  <Tooltip contentStyle={TT} formatter={v => [fmt.ton(v), 'Netto']} cursor={{ fill: '#ccfbf1', opacity: 0.5 }} />
-                  <Bar dataKey="value" fill="url(#tealGrad)" radius={[0, 5, 5, 0]} barSize={20}
+                  <Tooltip contentStyle={TT} formatter={v => [fmt.ton(v), 'Netto']} cursor={{ fill: '#f1f5f9', opacity: 0.5 }} />
+                  <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={22}
                     animationDuration={1200} animationEasing="ease-out" animationBegin={150}>
-                    <LabelList dataKey="value" position="right" style={{ fill: '#1e293b', fontSize: 10, fontWeight: 700 }} formatter={v => (v / 1000).toFixed(1) + 't'} />
+                    {top5Data.map((_, i) => {
+                      const colors = ['#3b82f6','#10b981','#f97316','#a855f7','#ef4444']
+                      return <Cell key={i} fill={colors[i % colors.length]} />
+                    })}
+                    <LabelList dataKey="value" position="right" style={{ fill: '#1e293b', fontSize: 11, fontWeight: 700 }} formatter={v => (v / 1000).toFixed(2).replace('.',',') + 't'} />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -434,9 +440,9 @@ export default function Dashboard() {
                 <BarChart data={dailyData} margin={{ left: -10, right: 4, top: 12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="dailyGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%"  stopColor="#93c5fd" stopOpacity={1}/>
-                      <stop offset="60%" stopColor="#60a5fa" stopOpacity={1}/>
-                      <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.9}/>
+                      <stop offset="0%"  stopColor="#86efac" stopOpacity={1}/>
+                      <stop offset="60%" stopColor="#22c55e" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#15803d" stopOpacity={0.95}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />

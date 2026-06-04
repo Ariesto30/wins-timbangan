@@ -7,7 +7,7 @@ router.use(authenticate);
 // GET summary: total trip + ton per dimensi (relasi, produk, kontrak, do)
 router.get('/summary', async (req, res) => {
   try {
-    const { groupBy = 'relasi', produk, relasi_id, tahun, bulan, search } = req.query;
+    const { groupBy = 'relasi', produk, relasi_id, tahun, bulan, bulan_start, bulan_end, search } = req.query;
     // Whitelist groupBy untuk security
     const validGroups = {
       relasi: ['relasi_nama'],
@@ -25,7 +25,10 @@ router.get('/summary', async (req, res) => {
     if (produk && produk !== 'Semua') { where.push(`produk = $${n++}`); params.push(produk); }
     if (relasi_id) { where.push(`relasi_id = $${n++}`); params.push(parseInt(relasi_id)); }
     if (tahun) { where.push(`to_char(tanggal_masuk, 'YYYY') = $${n++}`); params.push(tahun); }
-    if (bulan && bulan !== 'Semua') { where.push(`to_char(tanggal_masuk, 'MM') = $${n++}`); params.push(String(bulan).padStart(2,'0')); }
+    { const bs = (bulan_start && bulan_start !== 'Semua') ? bulan_start : (bulan && bulan !== 'Semua' ? bulan : null);
+      const be = (bulan_end && bulan_end !== 'Semua') ? bulan_end : (bulan && bulan !== 'Semua' ? bulan : null);
+      if (bs) { where.push(`to_char(tanggal_masuk, 'MM') >= $${n++}`); params.push(String(bs).padStart(2,'0')); }
+      if (be) { where.push(`to_char(tanggal_masuk, 'MM') <= $${n++}`); params.push(String(be).padStart(2,'0')); } }
     if (search) {
       where.push(`(no_kontrak ILIKE $${n} OR do_number ILIKE $${n} OR relasi_nama ILIKE $${n} OR produk ILIKE $${n})`);
       params.push(`%${search}%`); n++;
@@ -55,7 +58,7 @@ router.get('/summary', async (req, res) => {
 // GET list dengan filter
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 50, produk, relasi_id, bulan, tahun, no_polisi, search } = req.query;
+    const { page = 1, limit = 50, produk, relasi_id, bulan, bulan_start, bulan_end, tahun, no_polisi, search } = req.query;
     const offset = (page - 1) * limit;
     let where = [];
     let params = [];
@@ -63,12 +66,11 @@ router.get('/', async (req, res) => {
 
     if (produk) { where.push(`t.produk = $${n++}`); params.push(produk); }
     if (relasi_id) { where.push(`t.relasi_id = $${n++}`); params.push(parseInt(relasi_id)); }
-    if (bulan && tahun) {
-      where.push(`to_char(t.tanggal_masuk, 'MM-YYYY') = $${n++}`);
-      params.push(`${String(bulan).padStart(2,'0')}-${tahun}`);
-    } else if (tahun) {
-      where.push(`to_char(t.tanggal_masuk, 'YYYY') = $${n++}`); params.push(tahun);
-    }
+    if (tahun) { where.push(`to_char(t.tanggal_masuk, 'YYYY') = $${n++}`); params.push(tahun); }
+    { const bs = (bulan_start && bulan_start !== 'Semua') ? bulan_start : (bulan && bulan !== 'Semua' ? bulan : null);
+      const be = (bulan_end && bulan_end !== 'Semua') ? bulan_end : (bulan && bulan !== 'Semua' ? bulan : null);
+      if (bs) { where.push(`to_char(t.tanggal_masuk, 'MM') >= $${n++}`); params.push(String(bs).padStart(2,'0')); }
+      if (be) { where.push(`to_char(t.tanggal_masuk, 'MM') <= $${n++}`); params.push(String(be).padStart(2,'0')); } }
     if (no_polisi) { where.push(`t.no_polisi ILIKE $${n++}`); params.push(`%${no_polisi}%`); }
     if (search) {
       where.push(`(t.no_seri ILIKE $${n} OR t.no_polisi ILIKE $${n} OR t.relasi_nama ILIKE $${n} OR t.driver ILIKE $${n} OR t.no_kontrak ILIKE $${n} OR t.do_number ILIKE $${n})`);

@@ -6,13 +6,17 @@ router.use(authenticate);
 
 router.get('/', async (req, res) => {
   try {
-    const { arah, relasi_id, produk, search } = req.query;
+    const { arah, relasi_id, produk, search, tahun, bulan_start, bulan_end } = req.query;
     let where = [];
     let params = [];
     let n = 1;
     if (arah) { where.push(`arah = $${n++}`); params.push(arah); }
     if (relasi_id) { where.push(`relasi_id = $${n++}`); params.push(parseInt(relasi_id)); }
     if (produk && produk !== 'Semua') { where.push(`produk = $${n++}`); params.push(produk); }
+    // Filter berbasis tanggal penyerahan kontrak
+    if (tahun) { where.push(`to_char(tanggal_penyerahan, 'YYYY') = $${n++}`); params.push(tahun); }
+    if (bulan_start && bulan_start !== 'Semua') { where.push(`to_char(tanggal_penyerahan, 'MM') >= $${n++}`); params.push(String(bulan_start).padStart(2,'0')); }
+    if (bulan_end && bulan_end !== 'Semua') { where.push(`to_char(tanggal_penyerahan, 'MM') <= $${n++}`); params.push(String(bulan_end).padStart(2,'0')); }
     if (search) {
       where.push(`(no_kontrak ILIKE $${n} OR relasi_nama ILIKE $${n} OR produk ILIKE $${n} OR do_number ILIKE $${n})`);
       params.push(`%${search}%`); n++;
