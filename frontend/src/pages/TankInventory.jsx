@@ -130,10 +130,13 @@ function IsoTank({ pct, produk }) {
           {/* shimmer sweep */}
           <rect className="tank-shimmer" x="22" y={surfaceY} width="34" height={BOT - surfaceY} fill="rgba(255,255,255,.35)" />
           {/* bubbles (hanya jika ada cukup cairan) */}
-          {frac > 0.18 && <>
-            <circle className="tank-bubble" cx="46" cy={BOT - 8} r="2.2" fill="rgba(255,255,255,.6)" style={{ animationDelay: '0s' }} />
-            <circle className="tank-bubble" cx="68" cy={BOT - 6} r="1.6" fill="rgba(255,255,255,.5)" style={{ animationDelay: '1.6s' }} />
-            <circle className="tank-bubble" cx="58" cy={BOT - 10} r="1.9" fill="rgba(255,255,255,.55)" style={{ animationDelay: '3s' }} />
+          {frac > 0.12 && <>
+            <circle className="tank-bubble" cx="38" cy={BOT - 7} r="2.3" fill="rgba(255,255,255,.6)"  style={{ animationDelay: '0s' }} />
+            <circle className="tank-bubble" cx="50" cy={BOT - 5} r="1.6" fill="rgba(255,255,255,.5)"  style={{ animationDelay: '0.5s' }} />
+            <circle className="tank-bubble" cx="60" cy={BOT - 9} r="2.0" fill="rgba(255,255,255,.55)" style={{ animationDelay: '1.0s' }} />
+            <circle className="tank-bubble" cx="72" cy={BOT - 6} r="1.5" fill="rgba(255,255,255,.5)"  style={{ animationDelay: '1.5s' }} />
+            <circle className="tank-bubble" cx="84" cy={BOT - 8} r="1.9" fill="rgba(255,255,255,.55)" style={{ animationDelay: '2.0s' }} />
+            <circle className="tank-bubble" cx="54" cy={BOT - 4} r="1.4" fill="rgba(255,255,255,.5)"  style={{ animationDelay: '2.4s' }} />
           </>}
         </>}
       </g>

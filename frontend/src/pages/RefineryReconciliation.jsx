@@ -345,11 +345,13 @@ function RefTank({ code, mt, pct, color, light, fill = 82, w = 116 }) {
           {/* shimmer menyapu */}
           <rect className="tank-shimmer" x="16" y={surf} width={(w-32)*0.42} height={BOT - surf} fill="rgba(255,255,255,.35)" />
           {/* buih naik */}
-          {fill > 15 && <>
-            <circle className="tank-bubble" cx={w*0.38} cy={BOT-6} r="2.1" fill="rgba(255,255,255,.6)" style={{ animationDelay: '0s' }} />
-            <circle className="tank-bubble" cx={w*0.56} cy={BOT-4} r="1.5" fill="rgba(255,255,255,.5)" style={{ animationDelay: '1.4s' }} />
-            <circle className="tank-bubble" cx={w*0.48} cy={BOT-8} r="1.8" fill="rgba(255,255,255,.55)" style={{ animationDelay: '2.8s' }} />
-            <circle className="tank-bubble" cx={w*0.64} cy={BOT-5} r="1.3" fill="rgba(255,255,255,.5)" style={{ animationDelay: '3.6s' }} />
+          {fill > 12 && <>
+            <circle className="tank-bubble" cx={w*0.32} cy={BOT-7} r="2.3" fill="rgba(255,255,255,.6)"  style={{ animationDelay: '0s' }} />
+            <circle className="tank-bubble" cx={w*0.44} cy={BOT-5} r="1.6" fill="rgba(255,255,255,.5)"  style={{ animationDelay: '0.5s' }} />
+            <circle className="tank-bubble" cx={w*0.52} cy={BOT-9} r="2.0" fill="rgba(255,255,255,.55)" style={{ animationDelay: '1.0s' }} />
+            <circle className="tank-bubble" cx={w*0.62} cy={BOT-6} r="1.5" fill="rgba(255,255,255,.5)"  style={{ animationDelay: '1.5s' }} />
+            <circle className="tank-bubble" cx={w*0.7}  cy={BOT-8} r="1.9" fill="rgba(255,255,255,.55)" style={{ animationDelay: '2.0s' }} />
+            <circle className="tank-bubble" cx={w*0.48} cy={BOT-4} r="1.4" fill="rgba(255,255,255,.5)"  style={{ animationDelay: '2.4s' }} />
           </>}
           {/* sabuk baja horizontal (struktur tangki) */}
           {[0.4, 0.68].map((g,i)=>(<line key={i} x1="16" y1={BOT-g*H} x2={w-16} y2={BOT-g*H} stroke="rgba(15,23,42,.12)" strokeWidth="1" />))}
