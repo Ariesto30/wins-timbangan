@@ -20,10 +20,14 @@ function haversine(lon1, lat1, lon2, lat2) {
 }
 
 function buildPeriode(req) {
-  const { tahun, bulan, tgl_start, tgl_end } = req.query;
+  const { tahun, bulan, bulan_start, bulan_end, tgl_start, tgl_end } = req.query;
   let w = []; let p = []; let n = 1;
   if (tahun) { w.push(`to_char(tanggal_masuk, 'YYYY') = $${n++}`); p.push(tahun); }
-  if (bulan && bulan !== 'Semua') { w.push(`to_char(tanggal_masuk, 'MM') = $${n++}`); p.push(String(bulan).padStart(2,'0')); }
+  // Rentang bulan (dari–sampai). Fallback ke `bulan` tunggal untuk kompatibilitas lama.
+  const bs = (bulan_start && bulan_start !== 'Semua') ? bulan_start : (bulan && bulan !== 'Semua' ? bulan : null);
+  const be = (bulan_end && bulan_end !== 'Semua') ? bulan_end : (bulan && bulan !== 'Semua' ? bulan : null);
+  if (bs) { w.push(`to_char(tanggal_masuk, 'MM') >= $${n++}`); p.push(String(bs).padStart(2,'0')); }
+  if (be) { w.push(`to_char(tanggal_masuk, 'MM') <= $${n++}`); p.push(String(be).padStart(2,'0')); }
   if (tgl_start) { w.push(`tanggal_masuk >= $${n++}`); p.push(tgl_start); }
   if (tgl_end) { w.push(`tanggal_masuk <= $${n++}`); p.push(tgl_end); }
   return { where: w, params: p, nextN: n };

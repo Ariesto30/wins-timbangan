@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from 'recharts'
 import { Shield, AlertTriangle, TrendingDown, Clock, Truck, Users, FileSearch, Activity, Hash, Zap, AlertOctagon, Settings, ChevronRight, ChevronDown, Copy, MapPin, Save, BarChart3, UserCheck, ExternalLink, X } from 'lucide-react'
 import api, { fmt } from '../utils/api'
+import MonthRange from '../components/MonthRange'
 
 const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
 const tt = { backgroundColor:'#fff', border:'1px solid #e5e7eb', borderRadius:8, color:'#111827', fontSize:12, boxShadow:'0 4px 12px rgba(0,0,0,.1)' }
@@ -9,7 +10,8 @@ const tt = { backgroundColor:'#fff', border:'1px solid #e5e7eb', borderRadius:8,
 export default function AuditForensik() {
   const [tab, setTab] = useState('score')
   const [tahun, setTahun] = useState('')
-  const [bulan, setBulan] = useState('')
+  const [bulanStart, setBulanStart] = useState('')
+  const [bulanEnd, setBulanEnd] = useState('')
 
   return (
     <div className="space-y-4">
@@ -29,10 +31,7 @@ export default function AuditForensik() {
             <option value="">Semua Tahun</option>
             <option>2025</option><option>2026</option>
           </select>
-          <select className="input w-auto" value={bulan} onChange={e => setBulan(e.target.value)}>
-            <option value="">Semua Bulan</option>
-            {MONTHS.slice(1).map((m, i) => <option key={i+1} value={String(i+1).padStart(2,'0')}>{m}</option>)}
-          </select>
+          <MonthRange start={bulanStart} end={bulanEnd} onStart={setBulanStart} onEnd={setBulanEnd} />
         </div>
       </div>
 
@@ -62,16 +61,16 @@ export default function AuditForensik() {
         })}
       </div>
 
-      {tab==='score'     && <ScoreTab tahun={tahun} bulan={bulan} />}
-      {tab==='fraudidx'  && <FraudIndexTab tahun={tahun} bulan={bulan} />}
-      {tab==='capacity'  && <CapacityTab tahun={tahun} bulan={bulan} />}
+      {tab==='score'     && <ScoreTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='fraudidx'  && <FraudIndexTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='capacity'  && <CapacityTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
       {tab==='truck'     && <TruckTab />}
-      {tab==='pattern'   && <PatternTab tahun={tahun} bulan={bulan} />}
-      {tab==='scorecard' && <ScorecardTab tahun={tahun} bulan={bulan} />}
-      {tab==='advanced'  && <AdvancedTab tahun={tahun} bulan={bulan} />}
-      {tab==='duplicate' && <DuplicateTab tahun={tahun} bulan={bulan} />}
-      {tab==='time'      && <TimeGeoTab tahun={tahun} bulan={bulan} />}
-      {tab==='distrib'   && <DistributionTab tahun={tahun} bulan={bulan} />}
+      {tab==='pattern'   && <PatternTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='scorecard' && <ScorecardTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='advanced'  && <AdvancedTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='duplicate' && <DuplicateTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='time'      && <TimeGeoTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {tab==='distrib'   && <DistributionTab tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
       {tab==='recon'     && <ReconTab />}
       {tab==='settings'  && <SettingsTab />}
     </div>
@@ -79,7 +78,7 @@ export default function AuditForensik() {
 }
 
 /* ──────────────── TAB 1: ANOMALY SCORE ──────────────── */
-function ScoreTab({ tahun, bulan }) {
+function ScoreTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState({})
@@ -87,8 +86,8 @@ function ScoreTab({ tahun, bulan }) {
 
   useEffect(() => {
     setLoading(true)
-    api.get('/audit/anomaly-score', { params: { tahun, bulan } }).then(r => setD(r.data)).finally(() => setLoading(false))
-  }, [tahun, bulan])
+    api.get('/audit/anomaly-score', { params: { tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)).finally(() => setLoading(false))
+  }, [tahun, bulanStart, bulanEnd])
 
   if (loading) return <div className="text-gray-500 py-10 text-center">Menghitung anomaly score...</div>
   if (!d) return null
@@ -453,13 +452,13 @@ function TruckTab() {
 }
 
 /* ──────────────── TAB 3: PATTERN (BENFORD) ──────────────── */
-function PatternTab({ tahun, bulan }) {
+function PatternTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [dig, setDig] = useState(null)
   useEffect(() => {
-    api.get('/audit/benford', { params:{ tahun, bulan } }).then(r => setD(r.data))
-    api.get('/audit/digit-forensic', { params:{ tahun, bulan } }).then(r => setDig(r.data))
-  }, [tahun, bulan])
+    api.get('/audit/benford', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data))
+    api.get('/audit/digit-forensic', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setDig(r.data))
+  }, [tahun, bulanStart, bulanEnd])
   if (!d || !dig) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   return (
@@ -631,10 +630,10 @@ function PatternTab({ tahun, bulan }) {
 }
 
 /* ──────────────── TAB 4: DUPLICATE ──────────────── */
-function DuplicateTab({ tahun, bulan }) {
+function DuplicateTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [drill, setDrill] = useState(null) // {title, params}
-  useEffect(() => { api.get('/audit/duplicates', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { api.get('/audit/duplicates', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   return (
@@ -742,9 +741,9 @@ function TripDetailModal({ title, params, onClose }) {
 }
 
 /* ──────────────── TAB 5: TIME & GEO ──────────────── */
-function TimeGeoTab({ tahun, bulan }) {
+function TimeGeoTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
-  useEffect(() => { api.get('/audit/time-geo', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { api.get('/audit/time-geo', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   const hours = Array.from({length:24}, (_,h) => ({ hour:h, label:String(h).padStart(2,'0')+':00', trip: d.perHour.find(x => x.hour===h)?.trip || 0 }))
@@ -816,10 +815,10 @@ function TimeGeoTab({ tahun, bulan }) {
 }
 
 /* ──────────────── TAB 6: DISTRIBUTION ──────────────── */
-function DistributionTab({ tahun, bulan }) {
+function DistributionTab({ tahun, bulanStart, bulanEnd }) {
   const [dim, setDim] = useState('produk')
   const [d, setD] = useState(null)
-  useEffect(() => { api.get('/audit/distribution', { params:{ dim, tahun, bulan } }).then(r => setD(r.data)) }, [dim, tahun, bulan])
+  useEffect(() => { api.get('/audit/distribution', { params:{ dim, tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [dim, tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   return (
@@ -1094,10 +1093,10 @@ function DrillBtn({ onClick, children, mono = true, className = '' }) {
 }
 
 /* ──────────────── FORENSIK+ : 5 AUDIT LANJUTAN ──────────────── */
-function AdvancedTab({ tahun, bulan }) {
+function AdvancedTab({ tahun, bulanStart, bulanEnd }) {
   const [sub, setSub] = useState('round')
   const [drill, setDrill] = useState(null)
-  const onDrill = (title, params) => setDrill({ title, params: { ...params, tahun, bulan } })
+  const onDrill = (title, params) => setDrill({ title, params: { ...params, tahun, bulan_start: bulanStart, bulan_end: bulanEnd } })
   const SUBS = [
     { id:'direction',label:'Konsistensi Arah',   icon: AlertOctagon, desc:'Arah timbang vs jenis produk' },
     { id:'truckclass',label:'Konsistensi Truk',  icon: Truck,        desc:'Label jenis truk vs kelas asli (netto)' },
@@ -1135,19 +1134,19 @@ function AdvancedTab({ tahun, bulan }) {
         })}
       </div>
 
-      {sub==='direction'  && <DirectionAudit tahun={tahun} bulan={bulan} />}
-      {sub==='truckclass' && <TruckClassAudit tahun={tahun} bulan={bulan} />}
-      {sub==='round'      && <RoundNumberAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='direction'  && <DirectionAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {sub==='truckclass' && <TruckClassAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {sub==='round'      && <RoundNumberAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
       {sub==='sequence'   && <SequenceGapAudit />}
-      {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
-      {sub==='velocity'   && <VelocityAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
-      {sub==='duration'   && <DurationAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
-      {sub==='tare'       && <TareProfileAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='weekend'    && <WeekendSpikeAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
+      {sub==='velocity'   && <VelocityAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
+      {sub==='duration'   && <DurationAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
+      {sub==='tare'       && <TareProfileAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
       {sub==='throughput' && <ThroughputAudit tahun={tahun} />}
-      {sub==='sameday'    && <SameDayPairAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
-      {sub==='benford2'   && <Benford2Audit tahun={tahun} bulan={bulan} />}
-      {sub==='drivertruck'&& <DriverTruckAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
-      {sub==='concentration' && <ConcentrationAudit tahun={tahun} bulan={bulan} onDrill={onDrill} />}
+      {sub==='sameday'    && <SameDayPairAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
+      {sub==='benford2'   && <Benford2Audit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
+      {sub==='drivertruck'&& <DriverTruckAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
+      {sub==='concentration' && <ConcentrationAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}
 
       {drill && <TripDetailModal title={drill.title} params={drill.params} onClose={() => setDrill(null)} />}
     </div>
@@ -1155,9 +1154,9 @@ function AdvancedTab({ tahun, bulan }) {
 }
 
 /* A2 — Same-Day Pair */
-function SameDayPairAudit({ tahun, bulan, onDrill }) {
+function SameDayPairAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/same-day-pair', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/same-day-pair', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   return (
@@ -1192,9 +1191,9 @@ function SameDayPairAudit({ tahun, bulan, onDrill }) {
 }
 
 /* A6 — Benford 2nd digit */
-function Benford2Audit({ tahun, bulan }) {
+function Benford2Audit({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/benford-2nd', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/benford-2nd', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const chart = d.dist.map(x => ({ digit: x.digit, Observasi: x.obs_pct, Harapan: x.exp_pct }))
   return (
@@ -1234,9 +1233,9 @@ function Benford2Audit({ tahun, bulan }) {
 }
 
 /* A7 — Driver-Truck Mismatch */
-function DriverTruckAudit({ tahun, bulan, onDrill }) {
+function DriverTruckAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/driver-truck', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/driver-truck', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   return (
@@ -1292,9 +1291,9 @@ function DriverTruckAudit({ tahun, bulan, onDrill }) {
 }
 
 /* A11 — Concentration / Collusion */
-function ConcentrationAudit({ tahun, bulan, onDrill }) {
+function ConcentrationAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/concentration', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/concentration', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   return (
@@ -1335,9 +1334,9 @@ function ConcentrationAudit({ tahun, bulan, onDrill }) {
 }
 
 /* B1 — Tare Profile per Truk */
-function TareProfileAudit({ tahun, bulan, onDrill }) {
+function TareProfileAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/tare-profile', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/tare-profile', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   const badge = st => st==='STABIL' ? <span className="badge-success">STABIL</span> : st==='DRIFT' ? <span className="badge-warning">DRIFT</span> : <span className="badge-danger">TIDAK STABIL</span>
@@ -1425,12 +1424,12 @@ function ThroughputAudit({ tahun }) {
 }
 
 /* D — Konsistensi Arah Timbang */
-function DirectionAudit({ tahun, bulan }) {
+function DirectionAudit({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [sel, setSel] = useState({})
   const [fixing, setFixing] = useState(false)
-  function load() { setD(null); setSel({}); api.get('/audit/direction', { params:{ tahun, bulan } }).then(r => setD(r.data)).catch(e => setD({ error: e.response?.data?.error || e.message })) }
-  useEffect(() => { load() }, [tahun, bulan])
+  function load() { setD(null); setSel({}); api.get('/audit/direction', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)).catch(e => setD({ error: e.response?.data?.error || e.message })) }
+  useEffect(() => { load() }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   if (d.error) return <div className="card bg-red-50 border-red-200 text-center py-8"><div className="text-red-600 font-semibold">Gagal memuat</div><div className="text-xs text-gray-500">{d.error}</div></div>
   const s = d.summary
@@ -1522,12 +1521,12 @@ function DirectionAudit({ tahun, bulan }) {
 }
 
 /* Konsistensi Truk — kelas truk berbasis plat */
-function TruckClassAudit({ tahun, bulan }) {
+function TruckClassAudit({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [sel, setSel] = useState({})
   const [fixing, setFixing] = useState(false)
-  function load() { setD(null); setSel({}); api.get('/audit/truck-class', { params:{ tahun, bulan } }).then(r => setD(r.data)).catch(e => setD({ error: e.response?.data?.error || e.message })) }
-  useEffect(() => { load() }, [tahun, bulan])
+  function load() { setD(null); setSel({}); api.get('/audit/truck-class', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)).catch(e => setD({ error: e.response?.data?.error || e.message })) }
+  useEffect(() => { load() }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   if (d.error) return <div className="card bg-red-50 border-red-200 text-center py-8"><div className="text-red-600 font-semibold">Gagal memuat</div><div className="text-xs text-gray-500">{d.error}</div></div>
   const s = d.summary
@@ -1612,9 +1611,9 @@ function TruckClassAudit({ tahun, bulan }) {
 }
 
 /* A1 — Round-Number Bias */
-function RoundNumberAudit({ tahun, bulan, onDrill }) {
+function RoundNumberAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/round-number', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/round-number', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   const cards = [
@@ -1726,9 +1725,9 @@ function SequenceGapAudit() {
 }
 
 /* A4 — Weekend Spike */
-function WeekendSpikeAudit({ tahun, bulan, onDrill }) {
+function WeekendSpikeAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/weekend-spike', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/weekend-spike', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   const vColor = s.verdict==='PERHATIAN' ? 'red' : s.verdict==='TINGGI' ? 'orange' : 'green'
@@ -1788,9 +1787,9 @@ function WeekendSpikeAudit({ tahun, bulan, onDrill }) {
 }
 
 /* A5 — Velocity / Turnaround */
-function VelocityAudit({ tahun, bulan, onDrill }) {
+function VelocityAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/velocity', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/velocity', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   return (
@@ -1836,9 +1835,9 @@ function VelocityAudit({ tahun, bulan, onDrill }) {
 }
 
 /* A8 — Duration & Distance Plausibility */
-function DurationAudit({ tahun, bulan, onDrill }) {
+function DurationAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   const [d, setD] = useState(null)
-  useEffect(() => { setD(null); api.get('/audit/duration-plausibility', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { setD(null); api.get('/audit/duration-plausibility', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
   return (
@@ -1895,11 +1894,11 @@ function KpiMini({ label, value, accent }) {
 }
 
 /* ──────────────── PHASE 1 TAB: VEHICLE CAPACITY ──────────────── */
-function CapacityTab({ tahun, bulan }) {
+function CapacityTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [selected, setSelected] = useState(null)
   const [filter, setFilter] = useState('all') // all | under | over
-  useEffect(() => { api.get('/audit/capacity', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { api.get('/audit/capacity', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   const types = Object.keys(d)
@@ -2035,9 +2034,9 @@ function CapacityTab({ tahun, bulan }) {
 }
 
 /* ──────────────── PHASE 3 TAB: SCORECARDS ──────────────── */
-function ScorecardTab({ tahun, bulan }) {
+function ScorecardTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
-  useEffect(() => { api.get('/audit/scorecards', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { api.get('/audit/scorecards', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   const maxIntensity = Math.max(...d.heatmap.map(c => c.intensity), 1)
@@ -2197,10 +2196,10 @@ function ScorecardTab({ tahun, bulan }) {
 }
 
 /* ──────────────── PHASE 4C TAB: COMPOSITE FRAUD INDEX ──────────────── */
-function FraudIndexTab({ tahun, bulan }) {
+function FraudIndexTab({ tahun, bulanStart, bulanEnd }) {
   const [d, setD] = useState(null)
   const [filter, setFilter] = useState('all')
-  useEffect(() => { api.get('/audit/fraud-index', { params:{ tahun, bulan } }).then(r => setD(r.data)) }, [tahun, bulan])
+  useEffect(() => { api.get('/audit/fraud-index', { params:{ tahun, bulan_start: bulanStart, bulan_end: bulanEnd } }).then(r => setD(r.data)) }, [tahun, bulanStart, bulanEnd])
   if (!d) return <div className="text-gray-500 py-10 text-center">Menghitung composite fraud score...</div>
 
   const filtered = filter === 'all' ? d.ranked : d.ranked.filter(r => r.level === filter)

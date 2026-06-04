@@ -86,11 +86,14 @@ router.get('/efisiensi', async (req, res) => {
 
 router.get('/analisa-oat', async (req, res) => {
   try {
-    const { tahun, bulan, produk, relasi_id, relasi_nama, truck_type } = req.query;
+    const { tahun, bulan, bulan_start, bulan_end, produk, relasi_id, relasi_nama, truck_type } = req.query;
     let where = ['t.truck_type IS NOT NULL', "t.truck_type != ''"];
     let params = []; let n = 1;
     if (tahun) { where.push(`to_char(t.tanggal_masuk, 'YYYY') = $${n++}`); params.push(tahun); }
-    if (bulan && bulan !== 'Semua') { where.push(`to_char(t.tanggal_masuk, 'MM') = $${n++}`); params.push(String(bulan).padStart(2,'0')); }
+    { const bs = (bulan_start && bulan_start !== 'Semua') ? bulan_start : (bulan && bulan !== 'Semua' ? bulan : null);
+      const be = (bulan_end && bulan_end !== 'Semua') ? bulan_end : (bulan && bulan !== 'Semua' ? bulan : null);
+      if (bs) { where.push(`to_char(t.tanggal_masuk, 'MM') >= $${n++}`); params.push(String(bs).padStart(2,'0')); }
+      if (be) { where.push(`to_char(t.tanggal_masuk, 'MM') <= $${n++}`); params.push(String(be).padStart(2,'0')); } }
     if (produk && produk !== 'Semua') { where.push(`t.produk = $${n++}`); params.push(produk); }
     if (truck_type && truck_type !== 'Semua') { where.push(`t.truck_type = $${n++}`); params.push(truck_type); }
     if (relasi_id) { where.push(`t.relasi_id = $${n++}`); params.push(parseInt(relasi_id)); }

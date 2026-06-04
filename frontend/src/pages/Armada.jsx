@@ -3,6 +3,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, LabelL
 import { Truck, Settings, Fuel, DollarSign, TrendingUp, Save, X, Plus, Edit2 } from 'lucide-react'
 import api, { fmt } from '../utils/api'
 import { hasRole } from '../utils/auth'
+import MonthRange from '../components/MonthRange'
 
 const tooltipStyle = { backgroundColor: '#1a2632', border: '1px solid #2a3a4a', borderRadius: 8, color: '#e2e8f0', fontSize: 12 }
 const TRUCK_COLORS = { '6 Roda': '#f59e0b', '10 Roda': '#3b82f6', '12 Roda': '#22c55e' }
@@ -11,7 +12,8 @@ const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','
 export default function Armada() {
   const [tab, setTab] = useState('analisa-oat')
   const [tahun, setTahun] = useState(new Date().getFullYear().toString())
-  const [bulan, setBulan] = useState('')
+  const [bulanStart, setBulanStart] = useState('')
+  const [bulanEnd, setBulanEnd] = useState('')
   const [produk, setProduk] = useState('Semua')
   const [truckType, setTruckType] = useState('Semua')
   const [relasiId, setRelasiId] = useState('')
@@ -30,8 +32,8 @@ export default function Armada() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-bold text-white">Efisiensi Armada & OAT</h1>
-          <p className="text-sm text-slate-500">Analisa konsumsi solar, biaya OAT, dan margin per trip</p>
+          <h1 className="text-xl font-bold text-gray-800">Efisiensi Armada & OAT</h1>
+          <p className="text-sm text-gray-400">Analisa konsumsi solar, biaya OAT, dan margin per trip</p>
         </div>
       </div>
 
@@ -45,16 +47,13 @@ export default function Armada() {
             </select>
           </div>
           <div>
-            <label className="label">Bulan</label>
-            <select className="input" value={bulan} onChange={e => setBulan(e.target.value)}>
-              <option value="">Semua Bulan</option>
-              {MONTHS.slice(1).map((m, i) => <option key={i+1} value={String(i+1).padStart(2,'0')}>{m}</option>)}
-            </select>
+            <label className="label">Bulan (rentang)</label>
+            <MonthRange start={bulanStart} end={bulanEnd} onStart={setBulanStart} onEnd={setBulanEnd} />
           </div>
           <div>
             <label className="label">Produk</label>
             <select className="input" value={produk} onChange={e => setProduk(e.target.value)}>
-              <option>Semua</option><option>CPO</option><option>RBDPL</option><option>B-40</option><option>BE</option><option>PFAD</option>
+              <option>Semua</option><option>CPO</option><option>RBDPL</option><option>RBDPS</option><option>B-40</option><option>BE</option><option>PFAD</option>
             </select>
           </div>
           <div>
@@ -64,27 +63,27 @@ export default function Armada() {
             </select>
           </div>
           <div>
-            <label className="label">Relasi {produk !== 'Semua' && <span className="text-primary-400 normal-case">({produk})</span>}</label>
+            <label className="label">Relasi {produk !== 'Semua' && <span className="text-purple-600 normal-case">({produk})</span>}</label>
             <select className="input" value={relasiId} onChange={e => setRelasiId(e.target.value)}>
               <option value="">Semua Relasi</option>
               {relasiList.map(r => <option key={r.id} value={r.id}>{r.nama}</option>)}
             </select>
           </div>
         </div>
-        {(produk !== 'Semua' || truckType !== 'Semua' || relasiId || bulan) && (
+        {(produk !== 'Semua' || truckType !== 'Semua' || relasiId || bulanStart || bulanEnd) && (
           <div className="mt-3 flex items-center gap-2 text-xs">
-            <span className="text-slate-400">Filter aktif:</span>
+            <span className="text-gray-500">Filter aktif:</span>
             {produk !== 'Semua' && <span className="badge-info">Produk: {produk}</span>}
             {truckType !== 'Semua' && <span className="badge-info">Truck: {truckType}</span>}
-            {bulan && <span className="badge-info">Bulan: {MONTHS[parseInt(bulan)]}</span>}
+            {(bulanStart || bulanEnd) && <span className="badge-info">Bulan: {MONTHS[parseInt(bulanStart)] || 'awal'} – {MONTHS[parseInt(bulanEnd)] || 'Des'}</span>}
             {relasiId && <span className="badge-info">Relasi: {relasiList.find(r => String(r.id) === String(relasiId))?.nama}</span>}
-            <button onClick={() => { setProduk('Semua'); setTruckType('Semua'); setRelasiId(''); setBulan(''); }} className="text-red-400 hover:text-red-300 ml-2">✕ Reset</button>
+            <button onClick={() => { setProduk('Semua'); setTruckType('Semua'); setRelasiId(''); setBulanStart(''); setBulanEnd(''); }} className="text-red-600 hover:text-red-700 ml-2">✕ Reset</button>
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-wins-border">
+      <div className="flex gap-2 border-b border-gray-200">
         {[
           { id: 'analisa-oat', label: 'Analisa OAT & Margin', icon: DollarSign },
           { id: 'efisiensi',   label: 'Efisiensi per Jenis Truck', icon: Truck },
@@ -94,14 +93,14 @@ export default function Armada() {
         ].map(t => {
           const Icon = t.icon
           return (
-            <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${tab === t.id ? 'border-primary-500 text-primary-400' : 'border-transparent text-slate-400 hover:text-white'}`}>
+            <button key={t.id} onClick={() => setTab(t.id)} className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px flex items-center gap-2 ${tab === t.id ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
               <Icon size={14} /> {t.label}
             </button>
           )
         })}
       </div>
 
-      {tab === 'analisa-oat' && <AnalisaOAT tahun={tahun} bulan={bulan} produk={produk} truckType={truckType} relasiId={relasiId} />}
+      {tab === 'analisa-oat' && <AnalisaOAT tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} produk={produk} truckType={truckType} relasiId={relasiId} />}
       {tab === 'efisiensi' && <EfisiensiPerJenis tahun={tahun} produk={produk} />}
       {tab === 'kendaraan' && <PerKendaraan tahun={tahun} />}
       {tab === 'parameter' && <ParameterOAT />}
@@ -111,7 +110,7 @@ export default function Armada() {
 }
 
 /* ─── TAB 1: ANALISA OAT & MARGIN ──────────────── */
-function AnalisaOAT({ tahun, bulan, produk, truckType, relasiId }) {
+function AnalisaOAT({ tahun, bulanStart, bulanEnd, produk, truckType, relasiId }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -119,16 +118,17 @@ function AnalisaOAT({ tahun, bulan, produk, truckType, relasiId }) {
     setLoading(true)
     api.get('/armada/analisa-oat', { params: {
       tahun: tahun||undefined,
-      bulan: bulan||undefined,
+      bulan_start: bulanStart||undefined,
+      bulan_end: bulanEnd||undefined,
       produk: produk!=='Semua'?produk:undefined,
       truck_type: truckType!=='Semua'?truckType:undefined,
       relasi_id: relasiId||undefined,
     } })
       .then(r => setData(r.data))
       .finally(() => setLoading(false))
-  }, [tahun, bulan, produk, truckType, relasiId])
+  }, [tahun, bulanStart, bulanEnd, produk, truckType, relasiId])
 
-  if (loading) return <div className="text-slate-400 py-10 text-center">Memuat...</div>
+  if (loading) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   if (!data) return null
   const { summary, rows, param } = data
 
@@ -137,32 +137,32 @@ function AnalisaOAT({ tahun, bulan, produk, truckType, relasiId }) {
       {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         {[
-          { label: 'Total Trip', value: fmt.num(summary.trip), color: 'text-white' },
-          { label: 'Total Omzet OAT', value: fmt.rp(summary.omzet), color: 'text-primary-400' },
-          { label: 'Total Biaya', value: fmt.rp(summary.biaya), color: 'text-yellow-400' },
-          { label: 'Total Margin', value: fmt.rp(summary.margin), color: summary.margin >= 0 ? 'text-green-400' : 'text-red-400' },
-          { label: 'Margin %', value: summary.margin_pct + '%', color: summary.margin_pct >= 15 ? 'text-green-400' : summary.margin_pct >= 0 ? 'text-yellow-400' : 'text-red-400' },
+          { label: 'Total Trip', value: fmt.num(summary.trip), color: 'text-gray-800' },
+          { label: 'Total Omzet OAT', value: fmt.rp(summary.omzet), color: 'text-purple-600' },
+          { label: 'Total Biaya', value: fmt.rp(summary.biaya), color: 'text-yellow-600' },
+          { label: 'Total Margin', value: fmt.rp(summary.margin), color: summary.margin >= 0 ? 'text-green-600' : 'text-red-600' },
+          { label: 'Margin %', value: summary.margin_pct + '%', color: summary.margin_pct >= 15 ? 'text-green-600' : summary.margin_pct >= 0 ? 'text-yellow-600' : 'text-red-600' },
         ].map((c, i) => (
           <div key={i} className="card">
-            <p className="text-xs text-slate-500 mb-1">{c.label}</p>
+            <p className="text-xs text-gray-400 mb-1">{c.label}</p>
             <p className={`text-base font-bold ${c.color}`}>{c.value}</p>
           </div>
         ))}
       </div>
 
       {/* Detail Solar */}
-      <div className="card flex items-center justify-between bg-orange-900/10 border-orange-700/30">
+      <div className="card flex items-center justify-between bg-orange-50 border-orange-200">
         <div className="flex items-center gap-3">
-          <Fuel className="text-orange-400" size={20} />
+          <Fuel className="text-orange-600" size={20} />
           <div>
-            <p className="text-xs text-slate-400">Konsumsi Solar Total</p>
-            <p className="text-base font-bold text-orange-400">{fmt.num(summary.total_liter_solar)} liter</p>
+            <p className="text-xs text-gray-500">Konsumsi Solar Total</p>
+            <p className="text-base font-bold text-orange-600">{fmt.num(summary.total_liter_solar)} liter</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-xs text-slate-400">Biaya Solar</p>
-          <p className="text-base font-bold text-orange-400">{fmt.rp(summary.total_biaya_solar)}</p>
-          <p className="text-xs text-slate-500">@ Rp {param.harga_solar.toLocaleString('id-ID')}/L</p>
+          <p className="text-xs text-gray-500">Biaya Solar</p>
+          <p className="text-base font-bold text-orange-600">{fmt.rp(summary.total_biaya_solar)}</p>
+          <p className="text-xs text-gray-400">@ Rp {param.harga_solar.toLocaleString('id-ID')}/L</p>
         </div>
       </div>
 
@@ -171,7 +171,7 @@ function AnalisaOAT({ tahun, bulan, produk, truckType, relasiId }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px]">
             <thead>
-              <tr className="border-b border-wins-border">
+              <tr className="border-b border-gray-200">
                 <th className="table-header">Relasi</th>
                 <th className="table-header">Produk</th>
                 <th className="table-header">Truck</th>
@@ -188,23 +188,23 @@ function AnalisaOAT({ tahun, bulan, produk, truckType, relasiId }) {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={12} className="text-center py-8 text-slate-500">Tidak ada data untuk filter ini</td></tr>
+                <tr><td colSpan={12} className="text-center py-8 text-gray-400">Tidak ada data untuk filter ini</td></tr>
               ) : rows.map((r, i) => (
-                <tr key={i} className="hover:bg-wins-border/30 border-b border-wins-border/50">
+                <tr key={i} className="hover:bg-gray-50 border-b border-gray-100">
                   <td className="table-cell text-xs max-w-[150px] truncate">{r.relasi_nama}</td>
                   <td className="table-cell"><span className="badge-neutral">{r.produk}</span></td>
                   <td className="table-cell text-xs" style={{ color: TRUCK_COLORS[r.truck_type] }}>{r.truck_type}</td>
-                  <td className="table-cell text-xs text-slate-400">{r.lokasi || '—'}</td>
+                  <td className="table-cell text-xs text-gray-500">{r.lokasi || '—'}</td>
                   <td className="table-cell text-right text-xs">{r.jarak_pp ? fmt.num(r.jarak_pp) + ' km' : '—'}</td>
                   <td className="table-cell text-right">{r.trip}</td>
                   <td className="table-cell text-right text-xs font-mono">{r.oat_per_kg ? fmt.rp(r.oat_per_kg) : '—'}</td>
-                  <td className="table-cell text-right text-orange-400 font-mono">{r.liter_per_trip || '—'}</td>
-                  <td className="table-cell text-right text-yellow-300 font-mono text-xs">{r.total_biaya_per_trip ? fmt.rp(r.total_biaya_per_trip) : '—'}</td>
-                  <td className="table-cell text-right text-primary-400 font-mono text-xs">{fmt.rp(r.omzet_per_trip)}</td>
-                  <td className={`table-cell text-right font-bold ${r.margin_pct >= 15 ? 'text-green-400' : r.margin_pct >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
+                  <td className="table-cell text-right text-orange-600 font-mono">{r.liter_per_trip || '—'}</td>
+                  <td className="table-cell text-right text-yellow-700 font-mono text-xs">{r.total_biaya_per_trip ? fmt.rp(r.total_biaya_per_trip) : '—'}</td>
+                  <td className="table-cell text-right text-purple-600 font-mono text-xs">{fmt.rp(r.omzet_per_trip)}</td>
+                  <td className={`table-cell text-right font-bold ${r.margin_pct >= 15 ? 'text-green-600' : r.margin_pct >= 0 ? 'text-yellow-600' : 'text-red-600'}`}>
                     {r.margin_pct}%
                   </td>
-                  <td className={`table-cell text-right font-mono text-xs ${r.margin_total >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <td className={`table-cell text-right font-mono text-xs ${r.margin_total >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {fmt.rp(r.margin_total)}
                   </td>
                 </tr>
@@ -212,7 +212,7 @@ function AnalisaOAT({ tahun, bulan, produk, truckType, relasiId }) {
             </tbody>
           </table>
         </div>
-        <div className="px-4 py-2 border-t border-wins-border text-xs text-slate-500 italic">
+        <div className="px-4 py-2 border-t border-gray-200 text-xs text-gray-400 italic">
           OAT/Kg = tarif input · Solar/trip = (½ jarak ÷ km/L muat) + (½ jarak ÷ km/L kosong) · Margin = (Omzet - Biaya) ÷ Omzet
         </div>
       </div>
@@ -237,26 +237,26 @@ function EfisiensiPerJenis({ tahun, produk }) {
           <div key={t.truck_type} className="card border-l-4" style={{ borderLeftColor: TRUCK_COLORS[t.truck_type] }}>
             <div className="flex items-center justify-between mb-3">
               <div>
-                <h3 className="font-bold text-white text-base">{t.truck_type}</h3>
-                <p className="text-xs text-slate-500">{t.jml_kendaraan} unit kendaraan</p>
+                <h3 className="font-bold text-gray-800 text-base">{t.truck_type}</h3>
+                <p className="text-xs text-gray-400">{t.jml_kendaraan} unit kendaraan</p>
               </div>
               <Truck size={28} style={{ color: TRUCK_COLORS[t.truck_type] }} />
             </div>
             <div className="space-y-2 text-sm">
-              <div className="flex justify-between"><span className="text-slate-400">Total Trip</span><strong className="text-white">{fmt.num(t.trip)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-400">Total Netto</span><strong className="text-white">{fmt.tonRaw(t.total_netto_kg)} ton</strong></div>
-              <div className="flex justify-between"><span className="text-slate-400">Avg/Trip</span><strong className="text-primary-400">{fmt.kg(t.avg_netto)}</strong></div>
-              <div className="flex justify-between"><span className="text-slate-400">Maks</span><strong className="text-green-400 text-xs">{fmt.num(t.maks_netto)} kg</strong></div>
-              <div className="flex justify-between"><span className="text-slate-400">Min</span><strong className="text-red-400 text-xs">{fmt.num(t.min_netto)} kg</strong></div>
-              <div className="pt-2 border-t border-wins-border">
-                <div className="flex justify-between"><span className="text-slate-400">Share Volume</span><strong className="text-yellow-400">{total > 0 ? (t.total_netto_kg/total*100).toFixed(1) : 0}%</strong></div>
+              <div className="flex justify-between"><span className="text-gray-500">Total Trip</span><strong className="text-gray-800">{fmt.num(t.trip)}</strong></div>
+              <div className="flex justify-between"><span className="text-gray-500">Total Netto</span><strong className="text-gray-800">{fmt.tonRaw(t.total_netto_kg)} ton</strong></div>
+              <div className="flex justify-between"><span className="text-gray-500">Avg/Trip</span><strong className="text-purple-600">{fmt.kg(t.avg_netto)}</strong></div>
+              <div className="flex justify-between"><span className="text-gray-500">Maks</span><strong className="text-green-600 text-xs">{fmt.num(t.maks_netto)} kg</strong></div>
+              <div className="flex justify-between"><span className="text-gray-500">Min</span><strong className="text-red-600 text-xs">{fmt.num(t.min_netto)} kg</strong></div>
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex justify-between"><span className="text-gray-500">Share Volume</span><strong className="text-yellow-600">{total > 0 ? (t.total_netto_kg/total*100).toFixed(1) : 0}%</strong></div>
               </div>
             </div>
           </div>
         ))}
       </div>
       <div className="card">
-        <h3 className="text-sm font-semibold text-white mb-3">Perbandingan Avg Netto / Trip per Jenis Truck</h3>
+        <h3 className="text-sm font-semibold text-gray-800 mb-3">Perbandingan Avg Netto / Trip per Jenis Truck</h3>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={data} margin={{ left: -10, right: 30, top: 20, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#2a3a4a" />
@@ -284,8 +284,8 @@ function PerKendaraan({ tahun }) {
 
   return (
     <div className="card p-0 overflow-hidden">
-      <div className="px-4 py-3 border-b border-wins-border">
-        <h3 className="text-sm font-semibold text-white">{data.length} Kendaraan Aktif</h3>
+      <div className="px-4 py-3 border-b border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-800">{data.length} Kendaraan Aktif</h3>
       </div>
       <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
         <table className="w-full">
@@ -303,15 +303,15 @@ function PerKendaraan({ tahun }) {
           </thead>
           <tbody>
             {data.map((d, i) => (
-              <tr key={i} className="hover:bg-wins-border/30 border-b border-wins-border/50">
+              <tr key={i} className="hover:bg-gray-50 border-b border-gray-100">
                 <td className="table-cell font-mono font-semibold" style={{ color: TRUCK_COLORS[d.truck_type] || '#94a3b8' }}>{d.no_polisi}</td>
                 <td className="table-cell text-xs">{d.truck_type}</td>
-                <td className="table-cell text-xs text-slate-400">{d.driver || '—'}</td>
+                <td className="table-cell text-xs text-gray-500">{d.driver || '—'}</td>
                 <td className="table-cell text-right">{fmt.num(d.trip)}</td>
                 <td className="table-cell text-right font-semibold">{fmt.tonRaw(d.netto_kg)} t</td>
-                <td className="table-cell text-right text-primary-400">{fmt.kg(d.avg_trip)}</td>
-                <td className="table-cell text-xs text-slate-400">{fmt.tgl(d.first_trip)}</td>
-                <td className="table-cell text-xs text-slate-400">{fmt.tgl(d.last_trip)}</td>
+                <td className="table-cell text-right text-purple-600">{fmt.kg(d.avg_trip)}</td>
+                <td className="table-cell text-xs text-gray-500">{fmt.tgl(d.first_trip)}</td>
+                <td className="table-cell text-xs text-gray-500">{fmt.tgl(d.last_trip)}</td>
               </tr>
             ))}
           </tbody>
@@ -343,13 +343,13 @@ function ParameterOAT() {
     } finally { setSaving(false) }
   }
 
-  if (!p) return <div className="text-slate-400 py-10 text-center">Memuat...</div>
+  if (!p) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
 
   return (
     <div className="card max-w-3xl">
       <div className="mb-4">
-        <h2 className="text-base font-bold text-white">Parameter Global OAT</h2>
-        <p className="text-xs text-slate-500">Asumsi teknis kendaraan & harga solar — dipakai untuk hitung biaya per trip</p>
+        <h2 className="text-base font-bold text-gray-800">Parameter Global OAT</h2>
+        <p className="text-xs text-gray-400">Asumsi teknis kendaraan & harga solar — dipakai untuk hitung biaya per trip</p>
       </div>
 
       <div className="space-y-5">
@@ -365,7 +365,7 @@ function ParameterOAT() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-slate-300 mb-2">Konsumsi Solar — Bermuatan (Km/L)</p>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Konsumsi Solar — Bermuatan (Km/L)</p>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="label">6 Roda</label><input type="number" step="0.1" className="input" value={p.kml_muat_6r} onChange={e => set('kml_muat_6r', +e.target.value)} disabled={!canEdit}/></div>
             <div><label className="label">10 Roda</label><input type="number" step="0.1" className="input" value={p.kml_muat_10r} onChange={e => set('kml_muat_10r', +e.target.value)} disabled={!canEdit}/></div>
@@ -374,7 +374,7 @@ function ParameterOAT() {
         </div>
 
         <div>
-          <p className="text-xs font-semibold text-slate-300 mb-2">Konsumsi Solar — Kosong (Km/L)</p>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Konsumsi Solar — Kosong (Km/L)</p>
           <div className="grid grid-cols-3 gap-3">
             <div><label className="label">6 Roda</label><input type="number" step="0.1" className="input" value={p.kml_kosong_6r} onChange={e => set('kml_kosong_6r', +e.target.value)} disabled={!canEdit}/></div>
             <div><label className="label">10 Roda</label><input type="number" step="0.1" className="input" value={p.kml_kosong_10r} onChange={e => set('kml_kosong_10r', +e.target.value)} disabled={!canEdit}/></div>
@@ -385,13 +385,13 @@ function ParameterOAT() {
         <div>
           <label className="label">Target Margin (%)</label>
           <input type="number" step="0.01" className="input" value={p.target_margin} onChange={e => set('target_margin', +e.target.value)} disabled={!canEdit} />
-          <p className="text-xs text-slate-500 mt-1">Format desimal — 0.15 = 15%</p>
+          <p className="text-xs text-gray-400 mt-1">Format desimal — 0.15 = 15%</p>
         </div>
 
         {canEdit && (
           <div className="flex items-center gap-3 pt-2">
             <button onClick={save} disabled={saving} className="btn-primary flex items-center gap-2"><Save size={15}/>{saving ? 'Menyimpan...' : 'Simpan Parameter'}</button>
-            {msg && <span className="text-sm text-primary-400">{msg}</span>}
+            {msg && <span className="text-sm text-purple-600">{msg}</span>}
           </div>
         )}
       </div>
@@ -430,8 +430,8 @@ function TarifOAT() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-semibold text-white">Tarif OAT (Rp / Kg) per Relasi & Produk</h3>
-          <p className="text-xs text-slate-500">Tarif disepakati per relasi — tersinkron dengan kalkulasi margin di tab Analisa OAT</p>
+          <h3 className="text-sm font-semibold text-gray-800">Tarif OAT (Rp / Kg) per Relasi & Produk</h3>
+          <p className="text-xs text-gray-400">Tarif disepakati per relasi — tersinkron dengan kalkulasi margin di tab Analisa OAT</p>
         </div>
         {canEdit && <button onClick={startNew} className="btn-primary flex items-center gap-2"><Plus size={15}/>Tambah Tarif</button>}
       </div>
@@ -439,7 +439,7 @@ function TarifOAT() {
       <div className="card p-0 overflow-hidden">
         <table className="w-full min-w-[800px]">
           <thead>
-            <tr className="border-b border-wins-border">
+            <tr className="border-b border-gray-200">
               <th className="table-header">Relasi</th>
               <th className="table-header">Produk</th>
               <th className="table-header">Lokasi</th>
@@ -453,20 +453,20 @@ function TarifOAT() {
           </thead>
           <tbody>
             {data.map(r => (
-              <tr key={r.id} className="hover:bg-wins-border/30 border-b border-wins-border/50">
+              <tr key={r.id} className="hover:bg-gray-50 border-b border-gray-100">
                 <td className="table-cell text-xs">{r.relasi_nama}</td>
                 <td className="table-cell"><span className="badge-neutral">{r.produk}</span></td>
-                <td className="table-cell text-xs text-slate-400">{r.lokasi || '—'}</td>
+                <td className="table-cell text-xs text-gray-500">{r.lokasi || '—'}</td>
                 <td className="table-cell text-right">{r.jarak_pp ? fmt.num(r.jarak_pp) + ' km' : '—'}</td>
                 <td className="table-cell text-right font-mono text-xs">{r.oat_6r ? fmt.rp(r.oat_6r) : '—'}</td>
                 <td className="table-cell text-right font-mono text-xs">{r.oat_10r ? fmt.rp(r.oat_10r) : '—'}</td>
                 <td className="table-cell text-right font-mono text-xs">{r.oat_12r ? fmt.rp(r.oat_12r) : '—'}</td>
-                <td className="table-cell text-right text-xs text-slate-500">{fmt.rp((r.makan_jalan||0)+(r.tol_retribusi||0)+(r.penginapan||0))}</td>
+                <td className="table-cell text-right text-xs text-gray-400">{fmt.rp((r.makan_jalan||0)+(r.tol_retribusi||0)+(r.penginapan||0))}</td>
                 <td className="table-cell">
                   {canEdit && (
                     <div className="flex gap-2 justify-end">
-                      <button onClick={() => startEdit(r)} className="text-slate-400 hover:text-primary-400"><Edit2 size={13}/></button>
-                      {hasRole('admin') && <button onClick={() => del(r.id)} className="text-slate-400 hover:text-red-400"><X size={13}/></button>}
+                      <button onClick={() => startEdit(r)} className="text-gray-500 hover:text-purple-600"><Edit2 size={13}/></button>
+                      {hasRole('admin') && <button onClick={() => del(r.id)} className="text-gray-500 hover:text-red-600"><X size={13}/></button>}
                     </div>
                   )}
                 </td>
@@ -477,17 +477,17 @@ function TarifOAT() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-wins-card border border-wins-border rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-wins-border">
-              <h2 className="font-semibold text-white">{editing ? 'Edit Tarif OAT' : 'Tambah Tarif OAT'}</h2>
-              <button onClick={() => setShowForm(false)}><X size={18} className="text-slate-400 hover:text-white"/></button>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 rounded-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-800">{editing ? 'Edit Tarif OAT' : 'Tambah Tarif OAT'}</h2>
+              <button onClick={() => setShowForm(false)}><X size={18} className="text-gray-500 hover:text-gray-800"/></button>
             </div>
             <div className="p-5 grid grid-cols-2 gap-3">
               <div className="col-span-2"><label className="label">Relasi *</label><input className="input" value={form.relasi_nama} onChange={e => setForm({...form, relasi_nama: e.target.value})} /></div>
               <div><label className="label">Produk *</label>
                 <select className="input" value={form.produk} onChange={e => setForm({...form, produk: e.target.value})}>
-                  {['CPO','RBDPL','B-40','BE','PFAD'].map(p => <option key={p}>{p}</option>)}
+                  {['CPO','RBDPL','RBDPS','B-40','BE','PFAD'].map(p => <option key={p}>{p}</option>)}
                 </select>
               </div>
               <div><label className="label">Lokasi</label><input className="input" value={form.lokasi||''} onChange={e => setForm({...form, lokasi: e.target.value})} /></div>

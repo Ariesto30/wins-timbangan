@@ -6,12 +6,15 @@ router.use(authenticate);
 
 router.get('/dashboard', async (req, res) => {
   try {
-    const { tahun, bulan, produk, relasi_id, truck_type, tgl_start, tgl_end } = req.query;
+    const { tahun, bulan, bulan_start, bulan_end, produk, relasi_id, truck_type, tgl_start, tgl_end } = req.query;
     let where = [];
     let params = [];
     let n = 1;
     if (tahun) { where.push(`to_char(tanggal_masuk, 'YYYY') = $${n++}`); params.push(tahun); }
-    if (bulan && bulan !== 'Semua') { where.push(`to_char(tanggal_masuk, 'MM') = $${n++}`); params.push(String(bulan).padStart(2,'0')); }
+    { const bs = (bulan_start && bulan_start !== 'Semua') ? bulan_start : (bulan && bulan !== 'Semua' ? bulan : null);
+      const be = (bulan_end && bulan_end !== 'Semua') ? bulan_end : (bulan && bulan !== 'Semua' ? bulan : null);
+      if (bs) { where.push(`to_char(tanggal_masuk, 'MM') >= $${n++}`); params.push(String(bs).padStart(2,'0')); }
+      if (be) { where.push(`to_char(tanggal_masuk, 'MM') <= $${n++}`); params.push(String(be).padStart(2,'0')); } }
     if (produk && produk !== 'Semua') { where.push(`produk = $${n++}`); params.push(produk); }
     if (relasi_id) { where.push(`relasi_id = $${n++}`); params.push(parseInt(relasi_id)); }
     if (truck_type && truck_type !== 'Semua') { where.push(`truck_type = $${n++}`); params.push(truck_type); }
