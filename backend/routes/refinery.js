@@ -43,8 +43,11 @@ function analyze(r, timbanganCpoMt) {
 
   // Yield split (basis cpo processed)
   const base = cpoProcessed > 0 ? cpoProcessed : 1;
+  // RBDPO total throughput = olein + stearin + sisa RBDPO (bukan hanya sisa stok)
+  const rbdpoTotal = oleinGross + stearinGross + rbdpo;
   const yields = {
-    rbdpo_pct: +(rbdpo / base * 100).toFixed(2),
+    rbdpo_pct: +(rbdpoTotal / base * 100).toFixed(2),   // total RBDPO yg dihasilkan
+    rbdpo_sisa_pct: +(rbdpo / base * 100).toFixed(2),    // sisa stok RBDPO saja
     pfad_pct: +(pfad / base * 100).toFixed(2),
   };
   // Fractionation split (basis olein+stearin gross)
@@ -52,6 +55,19 @@ function analyze(r, timbanganCpoMt) {
   const fractionation = {
     olein_pct: +(oleinGross / fracBase * 100).toFixed(2),
     stearin_pct: +(stearinGross / fracBase * 100).toFixed(2),
+  };
+
+  // FLOW yield: CPO Diolah → (PFAD + RBDPO) → (Olein + Stearin + sisa)
+  const lossFlow = +(cpoProcessed - pfad - rbdpoTotal).toFixed(1);
+  const flow = {
+    cpo_diolah: cpoProcessed,
+    pfad:   { mt: pfad,        aktual: +(pfad / base * 100).toFixed(1),       target: 5.0 },
+    rbdpo:  { mt: rbdpoTotal,  aktual: +(rbdpoTotal / base * 100).toFixed(1), target: 94.5 },
+    loss:   { mt: lossFlow,    aktual: +(lossFlow / base * 100).toFixed(1) },
+    // pecahan RBDPO (basis RBDPO total)
+    olein:    { mt: oleinGross,   aktual: +(oleinGross / (rbdpoTotal || 1) * 100).toFixed(1),   target: 75.0 },
+    stearin:  { mt: stearinGross, aktual: +(stearinGross / (rbdpoTotal || 1) * 100).toFixed(1), target: 20.0 },
+    rbdpo_sisa: { mt: rbdpo,      aktual: +(rbdpo / (rbdpoTotal || 1) * 100).toFixed(1) },
   };
 
   // Balance olein: produksi - reject = dispatch + stock
@@ -90,7 +106,7 @@ function analyze(r, timbanganCpoMt) {
 
   return {
     cpoAvailable, gapWeighbridge: +gapWeighbridge.toFixed(1), gapWeighbridgePct: +gapWeighbridgePct.toFixed(2),
-    yields, fractionation,
+    yields, fractionation, flow,
     oleinNet: +oleinNet.toFixed(1), oleinAccounted: +oleinAccounted.toFixed(1), oleinMismatch,
     stearinNet: +stearinNet.toFixed(1), stearinAccounted: +stearinAccounted.toFixed(1), stearinMismatch,
     timbanganMatch, flags,

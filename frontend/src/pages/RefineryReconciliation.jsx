@@ -234,19 +234,8 @@ function ReconciliationView({ detail, onEdit, onDelete }) {
         </div>
       )}
 
-      {/* Yield & Fraksinasi */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card">
-          <h4 className="font-bold text-sm text-gray-700 mb-3">Yield Konversi (basis CPO diolah)</h4>
-          <YieldBar label="RBDPO" pct={a.yields.rbdpo_pct} target={94.5} />
-          <YieldBar label="PFAD" pct={a.yields.pfad_pct} target={5} />
-        </div>
-        <div className="card">
-          <h4 className="font-bold text-sm text-gray-700 mb-3">Split Fraksinasi (olein vs stearin)</h4>
-          <YieldBar label="Olein" pct={a.fractionation.olein_pct} target={75} />
-          <YieldBar label="Stearin" pct={a.fractionation.stearin_pct} target={20} />
-        </div>
-      </div>
+      {/* Yield Flow — alur konversi CPO → PFAD + RBDPO → Olein + Stearin */}
+      {a.flow && <YieldFlow flow={a.flow} />}
 
       {/* Balance Olein & Stearin */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -289,6 +278,65 @@ function KpiBox({ label, value, sub, color }) {
       <div className="text-xs text-gray-500">{label}</div>
       <div className={`text-xl font-bold mt-1 ${txt}`}>{value}</div>
       {sub && <div className="text-[11px] text-gray-400 mt-0.5">{sub}</div>}
+    </div>
+  )
+}
+
+/* Diagram alur yield: CPO Diolah → PFAD + RBDPO → Olein + Stearin + sisa */
+function YieldFlow({ flow }) {
+  const f = flow
+  const dev = (a, t) => Math.abs(a - t) <= t * 0.1   // ±10% dari target = OK
+  const Node = ({ title, mt, aktual, target, color, sub }) => {
+    const ok = target == null ? null : dev(aktual, target)
+    return (
+      <div className="rounded-xl border-2 px-4 py-3 bg-white text-center min-w-[150px]" style={{ borderColor: color }}>
+        <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">{title}</div>
+        <div className="text-2xl font-extrabold mt-0.5" style={{ color }}>{fmtMt(mt)}<span className="text-xs font-semibold text-gray-400 ml-1">MT</span></div>
+        {aktual != null && (
+          <div className="text-xs mt-1">
+            <span className={ok === null ? 'text-gray-500 font-semibold' : ok ? 'text-green-600 font-semibold' : 'text-orange-600 font-semibold'}>{aktual}%</span>
+            {target != null && <span className="text-gray-400"> / target {target}%</span>}
+          </div>
+        )}
+        {sub && <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>}
+      </div>
+    )
+  }
+  const Arrow = () => <div className="text-gray-300 text-2xl px-1 select-none">→</div>
+  const ArrowDown = () => <div className="text-gray-300 text-xl text-center select-none leading-none my-1">↓</div>
+
+  return (
+    <div className="card">
+      <h4 className="font-bold text-sm text-gray-700 mb-1">Alur Konversi Yield (basis CPO Diolah)</h4>
+      <p className="text-xs text-gray-400 mb-4">CPO diolah dimurnikan jadi RBDPO + PFAD, lalu RBDPO dipecah jadi Olein & Stearin. Persentase = aktual vs target.</p>
+
+      {/* Tahap 1: CPO Diolah */}
+      <div className="flex flex-col items-center">
+        <Node title="CPO Diolah" mt={f.cpo_diolah} aktual={100} target={null} color="#f59e0b" sub="100% bahan baku" />
+        <ArrowDown />
+        {/* Tahap 2: PFAD + RBDPO + Loss */}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Node title="PFAD" mt={f.pfad.mt} aktual={f.pfad.aktual} target={f.pfad.target} color="#db2777" />
+          <span className="text-gray-300 font-bold">+</span>
+          <Node title="RBDPO" mt={f.rbdpo.mt} aktual={f.rbdpo.aktual} target={f.rbdpo.target} color="#0d9488" sub="olein+stearin+sisa" />
+          {f.loss && f.loss.mt > 0 && <>
+            <span className="text-gray-300 font-bold">+</span>
+            <Node title="Loss/Susut" mt={f.loss.mt} aktual={f.loss.aktual} target={null} color="#94a3b8" />
+          </>}
+        </div>
+        <ArrowDown />
+        {/* Tahap 3: RBDPO dipecah */}
+        <div className="text-[10px] text-gray-400 mb-1">RBDPO dipecah (fraksinasi):</div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Node title="RBD Olein" mt={f.olein.mt} aktual={f.olein.aktual} target={f.olein.target} color="#16a34a" sub="minyak goreng" />
+          <span className="text-gray-300 font-bold">+</span>
+          <Node title="RBD Stearin" mt={f.stearin.mt} aktual={f.stearin.aktual} target={f.stearin.target} color="#7c3aed" sub="lemak padat" />
+          {f.rbdpo_sisa && f.rbdpo_sisa.mt > 0 && <>
+            <span className="text-gray-300 font-bold">+</span>
+            <Node title="Sisa RBDPO" mt={f.rbdpo_sisa.mt} aktual={f.rbdpo_sisa.aktual} target={null} color="#0891b2" sub="belum dipecah" />
+          </>}
+        </div>
+      </div>
     </div>
   )
 }
