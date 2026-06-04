@@ -300,16 +300,19 @@ function KpiBox({ label, value, sub, color }) {
 }
 
 /* ═══════════ DIGITAL TWIN — proses refinery ala SCADA ═══════════ */
-function Pipe({ color, h = 30, horizontal = false }) {
-  if (horizontal) return (
-    <svg width="44" height="14" className="flex-shrink-0"><line x1="0" y1="7" x2="44" y2="7" stroke={color} strokeWidth="6" strokeLinecap="round" className="pipe-flow" opacity="0.9" /></svg>
-  )
+function Pipe({ color, h = 30 }) {
+  // Pipa berkilau: badan gelap + isi warna + dash beraliran + highlight
   return (
-    <svg width="14" height={h} className="flex-shrink-0"><line x1="7" y1="0" x2="7" y2={h} stroke={color} strokeWidth="6" strokeLinecap="round" className="pipe-flow" opacity="0.9" /></svg>
+    <svg width="16" height={h} className="flex-shrink-0">
+      <line x1="8" y1="0" x2="8" y2={h} stroke="#334155" strokeWidth="9" strokeLinecap="round" opacity="0.25" />
+      <line x1="8" y1="0" x2="8" y2={h} stroke={color} strokeWidth="7" strokeLinecap="round" />
+      <line x1="8" y1="0" x2="8" y2={h} stroke="#fff" strokeWidth="7" strokeLinecap="round" className="pipe-flow" opacity="0.45" />
+      <line x1="6" y1="2" x2="6" y2={h - 2} stroke="rgba(255,255,255,.55)" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
   )
 }
 
-/* Tangki silinder mini untuk scene proses */
+/* Tangki silinder metalik untuk scene proses */
 function RefTank({ code, mt, pct, color, light, fill = 82, w = 116 }) {
   const uid = `rt${code}`.replace(/[^a-z0-9]/gi, '')
   const TOP = 18, BOT = 116, H = BOT - TOP
@@ -317,25 +320,43 @@ function RefTank({ code, mt, pct, color, light, fill = 82, w = 116 }) {
   const body = `M16,${TOP} A30,9 0 0 1 ${w - 16},${TOP} L${w - 16},${BOT} A30,9 0 0 1 16,${BOT} Z`
   return (
     <div className="flex flex-col items-center">
-      <svg viewBox={`0 0 ${w} 140`} style={{ width: w }} className="h-32">
+      <svg viewBox={`0 0 ${w} 142`} style={{ width: w }} className="h-32">
         <defs>
+          {/* cairan */}
           <linearGradient id={`${uid}l`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={light} /><stop offset="100%" stopColor={color} /></linearGradient>
-          <linearGradient id={`${uid}g`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="rgba(255,255,255,.55)" /><stop offset="45%" stopColor="rgba(255,255,255,0)" /><stop offset="100%" stopColor="rgba(15,23,42,.14)" /></linearGradient>
+          {/* kulit baja: gelap-terang-gelap (silinder metalik) */}
+          <linearGradient id={`${uid}steel`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="rgba(15,23,42,.28)" />
+            <stop offset="18%" stopColor="rgba(255,255,255,.65)" />
+            <stop offset="40%" stopColor="rgba(255,255,255,.05)" />
+            <stop offset="62%" stopColor="rgba(255,255,255,0)" />
+            <stop offset="100%" stopColor="rgba(15,23,42,.32)" />
+          </linearGradient>
           <clipPath id={`${uid}c`}><path d={body} /></clipPath>
         </defs>
-        <ellipse cx={w/2} cy="128" rx={w/2-6} ry="7" fill="rgba(15,23,42,.10)" />
-        <path d={body} fill="#eef2f7" />
+        {/* bayangan lantai */}
+        <ellipse cx={w/2} cy="130" rx={w/2-4} ry="8" fill="rgba(15,23,42,.14)" />
+        {/* dinding belakang */}
+        <path d={body} fill="#e2e8f0" />
+        {/* cairan + animasi */}
         <g clipPath={`url(#${uid}c)`}>
           <rect x="16" y={surf} width={w-32} height={BOT - surf + 2} fill={`url(#${uid}l)`} />
           <ellipse className="ref-liquid" cx={w/2} cy={surf} rx={w/2-16} ry="8" fill={light} opacity="0.95" />
+          <ellipse className="ref-liquid" cx={w/2} cy={surf} rx={w/2-26} ry="5" fill="#ffffff" opacity="0.22" />
+          {/* sabuk baja horizontal (struktur tangki) */}
+          {[0.4, 0.68].map((g,i)=>(<line key={i} x1="16" y1={BOT-g*H} x2={w-16} y2={BOT-g*H} stroke="rgba(15,23,42,.12)" strokeWidth="1" />))}
         </g>
-        <path d={body} fill={`url(#${uid}g)`} stroke="rgba(15,23,42,.18)" strokeWidth="1" />
-        <ellipse cx={w/2} cy={TOP} rx={w/2-16} ry="9" fill="#f8fafc" stroke="rgba(15,23,42,.2)" strokeWidth="1" />
-        <rect x={w/2-5} y={TOP-8} width="10" height="6" rx="1.5" fill="#cbd5e1" stroke="rgba(15,23,42,.2)" strokeWidth=".7" />
+        {/* lapisan metalik */}
+        <path d={body} fill={`url(#${uid}steel)`} stroke="rgba(15,23,42,.3)" strokeWidth="1.2" />
+        {/* rim atas metalik */}
+        <ellipse cx={w/2} cy={TOP} rx={w/2-16} ry="9" fill="#f1f5f9" stroke="rgba(15,23,42,.35)" strokeWidth="1.3" />
+        <ellipse cx={w/2} cy={TOP} rx={w/2-23} ry="6" fill="none" stroke="rgba(15,23,42,.15)" strokeWidth="1" />
+        {/* nozzle */}
+        <rect x={w/2-5} y={TOP-9} width="10" height="7" rx="1.5" fill="#94a3b8" stroke="rgba(15,23,42,.3)" strokeWidth=".8" />
       </svg>
       <div className="text-center -mt-1">
-        <div className="text-[10px] font-bold text-gray-400">{code}</div>
-        <div className="font-extrabold text-sm" style={{ color }}>{fmtMt(mt)} <span className="text-[10px] text-gray-400">MT</span></div>
+        <div className="text-[9px] font-bold text-slate-400 tracking-wider">{code}</div>
+        <div className="font-extrabold text-sm leading-none" style={{ color }}>{fmtMt(mt)} <span className="text-[9px] text-slate-400">MT</span></div>
         {pct != null && <div className="text-[11px] font-semibold" style={{ color }}>{pct}%</div>}
       </div>
     </div>
@@ -368,9 +389,14 @@ function DigitalTwin({ r, a, tankSum }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3">
         {/* Scene proses */}
-        <div className="lg:col-span-2 rounded-xl bg-white/70 ring-1 ring-slate-200 p-4">
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Refinery Process Flow</div>
-          <div className="flex flex-col items-center">
+        <div className="lg:col-span-2 rounded-xl ring-1 ring-slate-300 p-4 relative overflow-hidden"
+          style={{ background: 'linear-gradient(160deg,#f1f5f9,#e2e8f0)' }}>
+          <div className="absolute inset-0 opacity-[0.5] pointer-events-none" style={{ backgroundImage: 'linear-gradient(rgba(100,116,139,.08) 1px, transparent 1px), linear-gradient(90deg, rgba(100,116,139,.08) 1px, transparent 1px)', backgroundSize: '26px 26px' }} />
+          <div className="relative flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Refinery Process Flow</span>
+            <span className="text-[10px] font-bold text-green-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> LIVE</span>
+          </div>
+          <div className="relative flex flex-col items-center">
             {/* CPO received */}
             <RefTank code="CPO RECEIVED" mt={r.cpo_received} pct={100} color={C.cpo[0]} light={C.cpo[1]} fill={98} w={140} />
             <Pipe color={C.cpo[0]} h={26} />
