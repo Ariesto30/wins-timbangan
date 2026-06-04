@@ -191,6 +191,9 @@ function FormGroup({ icon, title, color, children }) {
 function ReconciliationView({ detail, onEdit, onDelete }) {
   const r = detail.record
   const a = detail.analysis
+  const [view, setView] = useState('twin')
+  const [tankSum, setTankSum] = useState(null)
+  useEffect(() => { api.get('/tank').then(res => setTankSum(res.data.summary)).catch(() => {}) }, [])
   const FLAG_STYLE = {
     tinggi: { box: 'bg-red-50 border-red-200',       icon: 'text-red-600',    title: 'text-red-700' },
     sedang: { box: 'bg-orange-50 border-orange-200', icon: 'text-orange-600', title: 'text-orange-700' },
@@ -199,16 +202,30 @@ function ReconciliationView({ detail, onEdit, onDelete }) {
 
   return (
     <div className="space-y-4">
-      <div className="card flex items-center justify-between">
+      <div className="card flex items-center justify-between flex-wrap gap-2">
         <div>
           <h3 className="font-bold text-gray-800 text-lg">{r.periode_label}</h3>
           <p className="text-xs text-gray-400">{r.tgl_start || '?'} → {r.tgl_end || '?'}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-semibold">
+            <button onClick={() => setView('twin')} className={`px-3 py-1.5 ${view==='twin' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>🏭 Digital Twin</button>
+            <button onClick={() => setView('ringkasan')} className={`px-3 py-1.5 ${view==='ringkasan' ? 'bg-teal-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'}`}>📊 Ringkasan</button>
+          </div>
           <button onClick={onEdit} className="btn-secondary text-sm">Edit</button>
           <button onClick={onDelete} className="text-red-500 hover:text-red-700 p-2"><Trash2 size={16} /></button>
         </div>
       </div>
+
+      {view === 'twin' && <DigitalTwin r={r} a={a} tankSum={tankSum} />}
+      {view === 'ringkasan' && <RingkasanView r={r} a={a} FLAG_STYLE={FLAG_STYLE} />}
+    </div>
+  )
+}
+
+function RingkasanView({ r, a, FLAG_STYLE }) {
+  return (
+    <div className="space-y-4">
 
       {/* KPI mass balance */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -280,6 +297,197 @@ function KpiBox({ label, value, sub, color }) {
       {sub && <div className="text-[11px] text-gray-400 mt-0.5">{sub}</div>}
     </div>
   )
+}
+
+/* ═══════════ DIGITAL TWIN — proses refinery ala SCADA ═══════════ */
+function Pipe({ color, h = 30, horizontal = false }) {
+  if (horizontal) return (
+    <svg width="44" height="14" className="flex-shrink-0"><line x1="0" y1="7" x2="44" y2="7" stroke={color} strokeWidth="6" strokeLinecap="round" className="pipe-flow" opacity="0.9" /></svg>
+  )
+  return (
+    <svg width="14" height={h} className="flex-shrink-0"><line x1="7" y1="0" x2="7" y2={h} stroke={color} strokeWidth="6" strokeLinecap="round" className="pipe-flow" opacity="0.9" /></svg>
+  )
+}
+
+/* Tangki silinder mini untuk scene proses */
+function RefTank({ code, mt, pct, color, light, fill = 82, w = 116 }) {
+  const uid = `rt${code}`.replace(/[^a-z0-9]/gi, '')
+  const TOP = 18, BOT = 116, H = BOT - TOP
+  const surf = BOT - (fill / 100) * H
+  const body = `M16,${TOP} A30,9 0 0 1 ${w - 16},${TOP} L${w - 16},${BOT} A30,9 0 0 1 16,${BOT} Z`
+  return (
+    <div className="flex flex-col items-center">
+      <svg viewBox={`0 0 ${w} 140`} style={{ width: w }} className="h-32">
+        <defs>
+          <linearGradient id={`${uid}l`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={light} /><stop offset="100%" stopColor={color} /></linearGradient>
+          <linearGradient id={`${uid}g`} x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="rgba(255,255,255,.55)" /><stop offset="45%" stopColor="rgba(255,255,255,0)" /><stop offset="100%" stopColor="rgba(15,23,42,.14)" /></linearGradient>
+          <clipPath id={`${uid}c`}><path d={body} /></clipPath>
+        </defs>
+        <ellipse cx={w/2} cy="128" rx={w/2-6} ry="7" fill="rgba(15,23,42,.10)" />
+        <path d={body} fill="#eef2f7" />
+        <g clipPath={`url(#${uid}c)`}>
+          <rect x="16" y={surf} width={w-32} height={BOT - surf + 2} fill={`url(#${uid}l)`} />
+          <ellipse className="ref-liquid" cx={w/2} cy={surf} rx={w/2-16} ry="8" fill={light} opacity="0.95" />
+        </g>
+        <path d={body} fill={`url(#${uid}g)`} stroke="rgba(15,23,42,.18)" strokeWidth="1" />
+        <ellipse cx={w/2} cy={TOP} rx={w/2-16} ry="9" fill="#f8fafc" stroke="rgba(15,23,42,.2)" strokeWidth="1" />
+        <rect x={w/2-5} y={TOP-8} width="10" height="6" rx="1.5" fill="#cbd5e1" stroke="rgba(15,23,42,.2)" strokeWidth=".7" />
+      </svg>
+      <div className="text-center -mt-1">
+        <div className="text-[10px] font-bold text-gray-400">{code}</div>
+        <div className="font-extrabold text-sm" style={{ color }}>{fmtMt(mt)} <span className="text-[10px] text-gray-400">MT</span></div>
+        {pct != null && <div className="text-[11px] font-semibold" style={{ color }}>{pct}%</div>}
+      </div>
+    </div>
+  )
+}
+
+function DigitalTwin({ r, a, tankSum }) {
+  const f = a.flow || {}
+  const pctReceived = r.cpo_received > 0 ? (r.cpo_processed / r.cpo_received * 100).toFixed(1) : 0
+  const tm = a.timbanganMatch
+  const C = { cpo: ['#f59e0b', '#fcd34d'], pfad: ['#db2777', '#f472b6'], rbdpo: ['#0d9488', '#2dd4bf'], reject: ['#ef4444', '#fca5a5'], olein: ['#16a34a', '#4ade80'], stearin: ['#7c3aed', '#a78bfa'], sisa: ['#0891b2', '#67e8f9'] }
+  const yieldRows = [
+    { l: 'PFAD', mt: f.pfad?.mt, pct: f.pfad?.aktual, tgt: 5, c: '#db2777' },
+    { l: 'RBDPO (Total)', mt: f.rbdpo?.mt, pct: f.rbdpo?.aktual, tgt: 94.5, c: '#0d9488' },
+    { l: 'Loss / Susut', mt: f.loss?.mt, pct: f.loss?.aktual, tgt: null, c: '#64748b' },
+    { l: 'RBD Olein', mt: f.olein?.mt, pct: f.olein?.aktual, tgt: 75, c: '#16a34a' },
+    { l: 'RBD Stearin', mt: f.stearin?.mt, pct: f.stearin?.aktual, tgt: 20, c: '#7c3aed' },
+    { l: 'Sisa RBDPO', mt: f.rbdpo_sisa?.mt, pct: f.rbdpo_sisa?.aktual, tgt: null, c: '#0891b2' },
+  ]
+  return (
+    <div className="rounded-2xl overflow-hidden border border-slate-200" style={{ background: 'linear-gradient(160deg,#f8fafc,#eef2f7)' }}>
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 p-3 bg-white/60">
+        <TwinKpi label="CPO Received" value={fmtMt(r.cpo_received)} unit="MT" sub="weighbridge" color="#f59e0b" />
+        <TwinKpi label="CPO Processed" value={fmtMt(r.cpo_processed)} unit="MT" sub={`${pctReceived}% dari received`} color="#0ea5e9" />
+        <TwinKpi label="Total Produk Jual" value={fmtMt(a.oleinNet + a.stearinNet)} unit="MT" sub="Olein + Stearin (Net)" color="#16a34a" />
+        <TwinKpi label="CPO Reject" value={fmtMt(r.cpo_reject)} unit="MT" sub={`${r.cpo_received > 0 ? (r.cpo_reject / r.cpo_received * 100).toFixed(1) : 0}% dari received`} color="#ef4444" />
+        <TwinKpi label="Selisih Timbangan" value={tm ? fmtMt(tm.selisih) : '–'} unit="MT" sub={tm ? `${tm.selisih_pct}% (${Math.abs(tm.selisih_pct) < 1 ? 'Validated' : 'cek'})` : ''} color={tm && Math.abs(tm.selisih_pct) < 1 ? '#7c3aed' : '#ef4444'} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 p-3">
+        {/* Scene proses */}
+        <div className="lg:col-span-2 rounded-xl bg-white/70 ring-1 ring-slate-200 p-4">
+          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Refinery Process Flow</div>
+          <div className="flex flex-col items-center">
+            {/* CPO received */}
+            <RefTank code="CPO RECEIVED" mt={r.cpo_received} pct={100} color={C.cpo[0]} light={C.cpo[1]} fill={98} w={140} />
+            <Pipe color={C.cpo[0]} h={26} />
+            <div className="px-4 py-2 rounded-lg bg-slate-800 text-white text-xs font-bold tracking-wide shadow">⚙ REFINERY PROCESS — olah {fmtMt(r.cpo_processed)} MT</div>
+            {/* Split jadi PFAD + RBDPO + Reject */}
+            <div className="flex items-start justify-center gap-2 mt-1">
+              <Pipe color={C.pfad[0]} h={22} /><Pipe color={C.rbdpo[0]} h={22} /><Pipe color={C.reject[0]} h={22} />
+            </div>
+            <div className="flex flex-wrap items-start justify-center gap-4 mt-1">
+              <RefTank code="PFAD" mt={f.pfad?.mt} pct={f.pfad?.aktual} color={C.pfad[0]} light={C.pfad[1]} fill={60} />
+              <RefTank code="RBDPO" mt={f.rbdpo?.mt} pct={f.rbdpo?.aktual} color={C.rbdpo[0]} light={C.rbdpo[1]} fill={90} />
+              <RefTank code="REJECT" mt={r.cpo_reject} pct={r.cpo_received > 0 ? +(r.cpo_reject/r.cpo_received*100).toFixed(1) : 0} color={C.reject[0]} light={C.reject[1]} fill={30} />
+            </div>
+            {/* RBDPO dipecah */}
+            <div className="text-[10px] text-slate-400 mt-2">RBDPO dipecah (fraksinasi) ↓</div>
+            <div className="flex items-start justify-center gap-2">
+              <Pipe color={C.olein[0]} h={20} /><Pipe color={C.stearin[0]} h={20} /><Pipe color={C.sisa[0]} h={20} />
+            </div>
+            <div className="flex flex-wrap items-start justify-center gap-4">
+              <ProductTank code="RBD OLEIN" mt={f.olein?.mt} pct={f.olein?.aktual} colors={C.olein} dispatch={r.olein_dispatch} stock={r.olein_stock} />
+              <ProductTank code="RBD STEARIN" mt={f.stearin?.mt} pct={f.stearin?.aktual} colors={C.stearin} dispatch={r.stearin_dispatch} stock={r.stearin_stock} />
+              <ProductTank code="SISA RBDPO" mt={f.rbdpo_sisa?.mt} pct={f.rbdpo_sisa?.aktual} colors={C.sisa} dispatch={0} stock={r.rbdpo} />
+            </div>
+          </div>
+        </div>
+
+        {/* Panel kanan */}
+        <div className="space-y-3">
+          <div className="rounded-xl bg-white ring-1 ring-slate-200 p-3">
+            <div className="text-xs font-bold text-slate-700 mb-2">YIELD CONVERSION <span className="text-slate-400 font-normal">(dari CPO diolah)</span></div>
+            <div className="space-y-1.5">
+              {yieldRows.map((y, i) => {
+                const ok = y.tgt == null ? null : Math.abs(y.pct - y.tgt) <= y.tgt * 0.1
+                return (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="font-semibold" style={{ color: y.c }}>{y.l}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="font-mono text-slate-700">{fmtMt(y.mt)} MT</span>
+                      <span className={`font-bold ${ok === null ? 'text-slate-500' : ok ? 'text-green-600' : 'text-orange-500'}`}>{y.pct}%</span>
+                      {y.tgt != null && <span className="text-slate-300 text-[10px]">/ {y.tgt}%</span>}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white ring-1 ring-slate-200 p-3">
+            <div className="text-xs font-bold text-slate-700 mb-2">BALANCE SUMMARY</div>
+            <Row label="CPO Received (Input)" value={`${fmtMt(r.cpo_received)} MT`} />
+            <Row label="CPO Kumulatif Timbangan" value={`${tm ? fmtMt(tm.timbangan_cpo_mt) : '–'} MT`} />
+            <Row label="Selisih Timbangan" value={tm ? `${fmtMt(tm.selisih)} MT (${tm.selisih_pct}%)` : '–'} bold />
+            <div className="text-[10px] text-slate-400 mt-1">Selisih kecil (&lt;1%) = tervalidasi</div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <MiniBalance title="OLEIN" gross={r.olein_gross} reject={r.olein_reject} net={a.oleinNet} dispatch={r.olein_dispatch} stock={r.olein_stock} mismatch={a.oleinMismatch} />
+            <MiniBalance title="STEARIN" gross={r.stearin_gross} reject={r.stearin_reject} net={a.stearinNet} dispatch={r.stearin_dispatch} stock={r.stearin_stock} mismatch={a.stearinMismatch} />
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom status bar */}
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 bg-slate-800 text-white text-xs">
+        <StatusItem label="Total Tank" value={tankSum ? `${tankSum.total_tank} Unit` : '–'} />
+        <StatusItem label="Total Kapasitas" value={tankSum ? `${fmtMt(tankSum.total_kapasitas)} MT` : '–'} />
+        <StatusItem label="Total Stok" value={tankSum ? `${fmtMt(tankSum.total_stok)} MT` : '–'} />
+        <StatusItem label="Utilisasi" value={tankSum ? `${tankSum.util_pct}%` : '–'} />
+        <div className="flex items-center gap-1.5"><span className="text-slate-400">Alerts:</span><span className={`font-bold ${a.flags.length ? 'text-red-300' : 'text-green-300'}`}>🔔 {a.flags.length} Active</span></div>
+        <div className="flex items-center gap-1.5"><span className="text-slate-400">Status:</span><span className="font-bold text-green-300">✓ All Systems Normal</span></div>
+        <div className="ml-auto text-slate-400">Update: {r.updated_at ? new Date(r.updated_at).toLocaleString('id-ID') : '–'}</div>
+      </div>
+    </div>
+  )
+}
+
+function TwinKpi({ label, value, unit, sub, color }) {
+  return (
+    <div className="rounded-xl bg-white ring-1 ring-slate-200 px-3 py-2">
+      <div className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">{label}</div>
+      <div className="flex items-baseline gap-1"><span className="text-xl font-extrabold" style={{ color }}>{value}</span><span className="text-[10px] font-bold text-slate-400">{unit}</span></div>
+      <div className="text-[10px] text-slate-400">{sub}</div>
+    </div>
+  )
+}
+
+function ProductTank({ code, mt, pct, colors, dispatch, stock }) {
+  return (
+    <div className="flex flex-col items-center">
+      <RefTank code={code} mt={mt} pct={pct} color={colors[0]} light={colors[1]} fill={80} />
+      <div className="flex gap-1 mt-1">
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">📤 {fmtMt(dispatch)}</span>
+        <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">📦 {fmtMt(stock)}</span>
+      </div>
+    </div>
+  )
+}
+
+function MiniBalance({ title, gross, reject, net, dispatch, stock, mismatch }) {
+  const bad = Math.abs(mismatch) > 5
+  return (
+    <div className="rounded-xl bg-white ring-1 ring-slate-200 p-2.5">
+      <div className="text-[11px] font-bold text-slate-700 mb-1">BALANCE {title}</div>
+      <div className="space-y-0.5 text-[10px]">
+        <div className="flex justify-between"><span className="text-slate-400">Gross</span><span className="font-mono">{fmtMt(gross)}</span></div>
+        <div className="flex justify-between"><span className="text-slate-400">− Reject</span><span className="font-mono text-red-500">{fmtMt(reject)}</span></div>
+        <div className="flex justify-between font-semibold"><span className="text-slate-500">Net</span><span className="font-mono">{fmtMt(net)}</span></div>
+        <div className="flex justify-between"><span className="text-slate-400">Dispatch</span><span className="font-mono">{fmtMt(dispatch)}</span></div>
+        <div className="flex justify-between"><span className="text-slate-400">Stock</span><span className="font-mono">{fmtMt(stock)}</span></div>
+      </div>
+      <div className={`mt-1 px-1.5 py-0.5 rounded text-[9px] font-semibold ${bad ? 'bg-orange-50 text-orange-700' : 'bg-green-50 text-green-700'}`}>Δ {fmtMt(mismatch)} MT {bad ? '⚠' : '✓'}</div>
+    </div>
+  )
+}
+
+function StatusItem({ label, value }) {
+  return <div className="flex items-center gap-1.5"><span className="text-slate-400">{label}:</span><span className="font-bold">{value}</span></div>
 }
 
 /* Diagram alur yield: CPO Diolah → PFAD + RBDPO → Olein + Stearin + sisa */

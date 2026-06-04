@@ -78,6 +78,13 @@
 .tank-bubble { animation: tankBubble 5s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .tank-liquid-surface, .tank-shimmer, .tank-bubble { animation: none; } .tank-card { transition: none; } }
 
+/* ───── Refinery Digital Twin — pipa beraliran + tangki ───── */
+@keyframes pipeFlow { to { stroke-dashoffset: -24; } }
+.pipe-flow { stroke-dasharray: 5 7; animation: pipeFlow 1s linear infinite; }
+@keyframes refLiquidBob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-1.4px); } }
+.ref-liquid { animation: refLiquidBob 3s ease-in-out infinite; transform-origin: center; }
+@media (prefers-reduced-motion: reduce) { .pipe-flow, .ref-liquid { animation: none; } }
+
 /* Sembunyikan scrollbar (mini-rail) */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
