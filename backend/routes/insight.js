@@ -33,6 +33,26 @@ async function hargaMap() {
 }
 const PALIAS = { RBDPL: 'Olein', Olein: 'Olein', RBDPS: 'Stearin', Stearin: 'Stearin', PFAD: 'PFAD', RBDPO: 'RBDPO', CPO: 'CPO' };
 
+const pct = (a, b) => (b ? +(a / b * 100).toFixed(2) : 0);
+function calcYield(t) {
+  return {
+    refining: pct(t.rbdpo, t.cpo_feed), pfad: pct(t.pfad, t.cpo_feed),
+    refining_loss: +(100 - pct(t.rbdpo, t.cpo_feed) - pct(t.pfad, t.cpo_feed)).toFixed(2),
+    olein: pct(t.olein, t.rbdpo_feed), stearin: pct(t.stearin, t.rbdpo_feed),
+    frac_loss: +(100 - pct(t.olein, t.rbdpo_feed) - pct(t.stearin, t.rbdpo_feed)).toFixed(2),
+    cpo_reject: pct(t.cpo_reject, t.cpo_feed),
+  };
+}
+const PSUM = 'COALESCE(SUM(cpo_feed),0) cpo_feed,COALESCE(SUM(cpo_reject),0) cpo_reject,COALESCE(SUM(rbdpo),0) rbdpo,COALESCE(SUM(rbdpo_feed),0) rbdpo_feed,COALESCE(SUM(olein),0) olein,COALESCE(SUM(stearin),0) stearin,COALESCE(SUM(pfad),0) pfad';
+/* Ringkasan yield produksi: keseluruhan + 30 hari terakhir */
+async function prodYield() {
+  const has = await db.get(`SELECT COUNT(*)::int c, MAX(tanggal) mx, MIN(tanggal) mn FROM production_log`);
+  if (!has.c) return null;
+  const all = await db.get(`SELECT ${PSUM} FROM production_log`);
+  const last = await db.get(`SELECT ${PSUM} FROM production_log WHERE tanggal > $1::date - INTERVAL '30 days'`, [has.mx]);
+  return { hari: has.c, dari: has.mn, sampai: has.mx, overall: calcYield(all), last30: calcYield(last) };
+}
+
 /* ═══════════ OWNER DAILY BRIEFING ═══════════ */
 router.get('/briefing', async (req, res) => {
   try {
@@ -77,8 +97,24 @@ router.get('/briefing', async (req, res) => {
     });
     if (yest.out_trip === 0 && refDate) recs.push(`Tidak ada dispatch pada ${refDate}. Pastikan rencana pengiriman berjalan.`);
 
+    // Produksi & yield (dari production_log)
+    const py = await prodYield();
+    if (py) {
+      const o = py.overall, l = py.last30;
+      if (l.refining > 0 && l.refining < 88) recs.push(`Refining yield 30 hari ${l.refining}% (di bawah ~90%). Cek kualitas CPO & setting proses.`);
+      if (l.refining_loss > 2.5) recs.push(`Loss refining 30 hari ${l.refining_loss}% (tinggi). Investigasi susut proses.`);
+      if (l.cpo_reject > 3) recs.push(`Reject CPO 30 hari ${l.cpo_reject}% (tinggi). Verifikasi mutu bahan baku masuk.`);
+      if (l.refining > o.refining + 1) recs.push(`Refining yield membaik (${o.refining}%→${l.refining}% dalam 30 hari terakhir). Pertahankan.`);
+    }
+
     res.json({
       ref_date: refDate,
+      production: py ? {
+        hari: py.hari, sampai: py.sampai,
+        refining_yield: py.last30.refining, olein_yield: py.last30.olein, stearin_yield: py.last30.stearin,
+        refining_loss: py.last30.refining_loss, cpo_reject: py.last30.cpo_reject,
+        refining_overall: py.overall.refining,
+      } : null,
       yesterday: {
         in_trip: yest.in_trip, out_trip: yest.out_trip,
         in_mt: +(Number(yest.in_kg) / 1000).toFixed(1), out_mt: +(Number(yest.out_kg) / 1000).toFixed(1),
@@ -120,8 +156,15 @@ router.get('/center', async (req, res) => {
         COALESCE(SUM(t.berat_netto_wins) FILTER (WHERE p.arah='IN'),0)::bigint in_kg
       FROM timbangan t LEFT JOIN produk p ON p.kode=t.produk
       GROUP BY bulan ORDER BY bulan`);
+    // Yield bulanan dari production_log
+    const yieldMonths = await db.all(`SELECT to_char(tanggal,'YYYY-MM') bulan, ${PSUM} FROM production_log GROUP BY bulan ORDER BY bulan`);
+    const py = await prodYield();
     const production = {
       monthly: prodTrend.map(r => ({ bulan: r.bulan, out_mt: +(Number(r.out_kg) / 1000).toFixed(1), in_mt: +(Number(r.in_kg) / 1000).toFixed(1) })),
+      yield: py ? {
+        overall: py.overall, last30: py.last30, hari: py.hari, periode: `${py.dari} s/d ${py.sampai}`,
+        trend: yieldMonths.map(m => ({ bulan: m.bulan, ...calcYield(m), olein_mt: +(+m.olein).toFixed(1), stearin_mt: +(+m.stearin).toFixed(1) })),
+      } : null,
     };
 
     /* INVENTORY */

@@ -94,7 +94,19 @@ router.get('/crosscheck', async (req, res) => {
     });
     const totProd = rows.reduce((s, r) => s + r.produksi_cpo_in, 0);
     const totTimb = rows.reduce((s, r) => s + r.timbangan_cpo, 0);
-    res.json({ rows, rentang: { dari: from, sampai: to }, total: { produksi: +totProd.toFixed(1), timbangan: +totTimb.toFixed(1), selisih_mt: +(totProd - totTimb).toFixed(1) } });
+    // Interpretasi otomatis: pisahkan bulan "cocok" (steady-state) vs "selisih besar"
+    const steady = rows.filter(r => r.selisih_pct != null && Math.abs(r.selisih_pct) <= 2);
+    const besar = rows.filter(r => r.selisih_pct != null && Math.abs(r.selisih_pct) > 2);
+    const gapBesar = besar.reduce((s, r) => s + r.selisih_kg, 0) / 1000;
+    const insight = {
+      steady_bulan: steady.map(r => r.ym),
+      selisih_bulan: besar.map(r => ({ ym: r.ym, mt: +(r.selisih_kg / 1000).toFixed(1) })),
+      gap_besar_mt: +gapBesar.toFixed(1),
+      narasi: besar.length
+        ? `${steady.length} bulan cocok (±2%). Selisih besar terkonsentrasi di ${besar.map(r => r.ym).join(', ')} — total ${gapBesar.toFixed(0)} MT. Selisih negatif = CPO diterima > diolah (penumpukan stok / commissioning), bukan kehilangan.`
+        : `Semua ${steady.length} bulan cocok dalam toleransi ±2%.`,
+    };
+    res.json({ rows, rentang: { dari: from, sampai: to }, insight, total: { produksi: +totProd.toFixed(1), timbangan: +totTimb.toFixed(1), selisih_mt: +(totProd - totTimb).toFixed(1) } });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

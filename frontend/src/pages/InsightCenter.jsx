@@ -91,10 +91,36 @@ function Operational({ o }) {
 
 function Production({ p }) {
   const chart = p.monthly.map(m => ({ bulan: m.bulan.slice(2), IN: m.in_mt, OUT: m.out_mt }))
+  const y = p.yield
+  const yChart = y ? y.trend.filter(t => t.refining > 0).map(t => ({ bulan: t.bulan.slice(2), Refining: t.refining, Olein: t.olein, Stearin: t.stearin })) : []
   return (
     <div className="space-y-3">
-      <Sec title="Tren Produksi & Throughput per Bulan (MT)" desc="IN = bahan baku masuk · OUT = produk keluar (dispatch)">
-        <ResponsiveContainer width="100%" height={280}>
+      {y && (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <YKpi label="Refining Yield" v={y.last30.refining} sub={`overall ${fmt(y.overall.refining)}%`} good={y.last30.refining >= 90} />
+            <YKpi label="Olein Yield" v={y.last30.olein} sub={`overall ${fmt(y.overall.olein)}%`} color="#0ea5e9" />
+            <YKpi label="Stearin Yield" v={y.last30.stearin} sub={`overall ${fmt(y.overall.stearin)}%`} color="#7c3aed" />
+            <YKpi label="Loss Refining" v={y.last30.refining_loss} sub="30 hari" good={y.last30.refining_loss <= 2} invert />
+          </div>
+          <Sec title="Tren Yield Bulanan (%)" desc={`Dari Log Produksi Harian · ${y.hari} hari (${y.periode})`}>
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart data={yChart} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="bulan" tick={{ fill: '#64748b', fontSize: 10 }} />
+                <YAxis tick={{ fill: '#64748b', fontSize: 10 }} domain={[0, 100]} />
+                <Tooltip contentStyle={tt} formatter={v => v + '%'} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Bar dataKey="Refining" fill="#16a34a" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Olein" fill="#0ea5e9" radius={[3, 3, 0, 0]} />
+                <Bar dataKey="Stearin" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Sec>
+        </>
+      )}
+      <Sec title="Throughput Timbangan per Bulan (MT)" desc="IN = bahan baku masuk · OUT = produk keluar (dispatch)">
+        <ResponsiveContainer width="100%" height={250}>
           <BarChart data={chart} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="bulan" tick={{ fill: '#64748b', fontSize: 10 }} />
@@ -106,7 +132,17 @@ function Production({ p }) {
           </BarChart>
         </ResponsiveContainer>
       </Sec>
-      <p className="text-xs text-gray-400">Efisiensi yield (RBDPO/PFAD vs target) dapat dilihat detail di menu Refinery Balance → Digital Twin.</p>
+      {!y && <p className="text-xs text-gray-400">Yield detail muncul setelah ada data di Produksi Refinery (Log Harian).</p>}
+    </div>
+  )
+}
+function YKpi({ label, v, sub, good, invert, color }) {
+  const c = color || (good == null ? '#16a34a' : good ? '#16a34a' : '#dc2626')
+  return (
+    <div className="card">
+      <div className="text-[11px] text-gray-400 mb-1">{label}</div>
+      <div className="text-2xl font-extrabold tabular-nums" style={{ color: c }}>{fmt(v)}<span className="text-sm text-gray-400">%</span></div>
+      {sub && <div className="text-[10px] text-gray-400">{sub}</div>}
     </div>
   )
 }

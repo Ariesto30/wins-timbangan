@@ -61,6 +61,20 @@ export default function DailyBriefing() {
         </div>
       </div>
 
+      {/* Produksi & Yield (30 hari) */}
+      {d.production && (
+        <div>
+          <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Kinerja Produksi · 30 Hari Terakhir <span className="text-gray-300">· s/d {d.production.sampai}</span></div>
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <MiniCard icon={<Gauge size={16} className="text-green-600" />} label="Refining Yield" value={`${fmt(d.production.refining_yield)}%`} sub={`overall ${fmt(d.production.refining_overall)}%`} accent={d.production.refining_yield >= 90 ? 'green' : 'red'} />
+            <MiniCard icon={<Layers size={16} className="text-sky-600" />} label="Olein Yield" value={`${fmt(d.production.olein_yield)}%`} />
+            <MiniCard icon={<Layers size={16} className="text-purple-600" />} label="Stearin Yield" value={`${fmt(d.production.stearin_yield)}%`} />
+            <MiniCard icon={<AlertTriangle size={16} className={d.production.refining_loss > 2 ? 'text-red-600' : 'text-amber-500'} />} label="Loss Refining" value={`${fmt(d.production.refining_loss)}%`} accent={d.production.refining_loss > 2 ? 'red' : undefined} />
+            <MiniCard icon={<AlertTriangle size={16} className={d.production.cpo_reject > 3 ? 'text-red-600' : 'text-gray-500'} />} label="Reject CPO" value={`${fmt(d.production.cpo_reject)}%`} accent={d.production.cpo_reject > 3 ? 'red' : undefined} />
+          </div>
+        </div>
+      )}
+
       {/* Risk + Rekomendasi */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="card">

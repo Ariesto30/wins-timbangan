@@ -270,6 +270,19 @@ function CrosscheckTab() {
           {d.rentang && <span className="block mt-1 text-amber-700/80">📅 Apple-to-apple: timbangan dibatasi rentang log produksi <b>{d.rentang.dari} s/d {d.rentang.sampai}</b> (riwayat timbangan sebelum periode ini tidak dihitung).</span>}
         </div>
       </div>
+      {d.insight && (
+        <div className="card bg-slate-50 border-slate-200">
+          <div className="flex items-center gap-2 text-sm font-bold text-slate-700 mb-2"><CheckCircle size={15} className="text-emerald-600" /> Analisa Otomatis</div>
+          <p className="text-xs text-slate-600 leading-relaxed">{d.insight.narasi}</p>
+          {d.insight.steady_bulan?.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="text-[10px] text-slate-400 font-semibold self-center">Cocok:</span>
+              {d.insight.steady_bulan.map(m => <span key={m} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{m}</span>)}
+              {d.insight.selisih_bulan?.map(m => <span key={m.ym} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{m.ym}: {m.mt > 0 ? '+' : ''}{m.mt} MT</span>)}
+            </div>
+          )}
+        </div>
+      )}
       <div className="card">
         <div className="text-sm font-bold text-gray-700 mb-3">Produksi vs Timbangan (MT)</div>
         <ResponsiveContainer width="100%" height={260}>
