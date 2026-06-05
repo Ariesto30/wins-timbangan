@@ -209,6 +209,23 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // Harga pasar komoditas (PORAM/KPBN/FCPO/MPOB/Manual)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS harga_pasar (
+      id SERIAL PRIMARY KEY,
+      tanggal DATE NOT NULL,
+      sumber TEXT NOT NULL,
+      produk TEXT NOT NULL,
+      harga REAL NOT NULL,
+      mata_uang TEXT DEFAULT 'USD',
+      basis TEXT,
+      periode TEXT,
+      perubahan REAL,
+      auto BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(tanggal, sumber, produk, periode)
+    );
+  `);
   // Refinery mass-balance / raw & stock balancing per periode cut-off
   await pool.query(`
     CREATE TABLE IF NOT EXISTS refinery_balance (

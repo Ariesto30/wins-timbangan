@@ -16,6 +16,7 @@ import RefineryReconciliation from './pages/RefineryReconciliation'
 import TankInventory from './pages/TankInventory'
 import QualityLog from './pages/QualityLog'
 import PaymentAging from './pages/PaymentAging'
+import HargaPasar from './pages/HargaPasar'
 import Pengguna from './pages/Pengguna'
 
 function PrivateRoute({ children }) {
@@ -163,6 +164,7 @@ export default function App() {
       <Route path="/tank" element={<PrivateRoute><Layout><TankInventory /></Layout></PrivateRoute>} />
       <Route path="/quality" element={<PrivateRoute><Layout><QualityLog /></Layout></PrivateRoute>} />
       <Route path="/payment" element={<PrivateRoute><Layout><PaymentAging /></Layout></PrivateRoute>} />
+      <Route path="/harga" element={<PrivateRoute><Layout><HargaPasar /></Layout></PrivateRoute>} />
       <Route path="/pengguna" element={<PrivateRoute><Layout><Pengguna /></Layout></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
