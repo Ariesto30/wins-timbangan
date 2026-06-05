@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, Plus, Save, Trash2, AlertTriangle, CheckCircle, Scale, Droplet, TrendingDown, X, Package, Truck, Bell, Cog, BarChart3, ArrowUpFromLine } from 'lucide-react'
+import { Factory, Plus, Save, Trash2, AlertTriangle, CheckCircle, Scale, Droplet, TrendingDown, X, Package, Truck, Bell, Cog, BarChart3, ArrowUpFromLine, ArrowDownToLine } from 'lucide-react'
 import api from '../utils/api'
 
 const BLANK = {
@@ -57,6 +57,19 @@ export default function RefineryReconciliation() {
     setSelId(null); loadList()
   }
 
+  // Tarik agregat dari Log Produksi Harian -> isi form otomatis
+  async function tarikDariLog() {
+    try {
+      const params = {}
+      if (form.tgl_start) params.from = form.tgl_start
+      if (form.tgl_end) params.to = form.tgl_end
+      const r = await api.get('/production/aggregate', { params })
+      const m = r.data.mapped
+      setForm(f => ({ ...f, ...m, periode_label: f.periode_label || m.periode_label }))
+      alert(`Terisi dari Log Harian (${r.data.rentang.dari} s/d ${r.data.rentang.sampai}).\nCek & sesuaikan stok bila perlu, lalu Simpan.`)
+    } catch (e) { alert('Gagal tarik: ' + (e.response?.data?.error || e.message)) }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -65,8 +78,8 @@ export default function RefineryReconciliation() {
             <Factory size={22} className="text-white" />
           </div>
           <div>
-            <h1 className="page-title">Refinery Reconciliation</h1>
-            <p className="page-subtitle">Raw & Stock Balancing — rekonsiliasi produksi vs timbangan</p>
+            <h1 className="page-title">Refinery Balance <span className="text-[11px] font-semibold text-teal-600 align-middle ml-1">RINGKASAN PERIODE</span></h1>
+            <p className="page-subtitle">Rekonsiliasi neraca per periode — bisa ditarik otomatis dari Produksi Refinery (harian)</p>
           </div>
         </div>
         <button onClick={startNew} className="btn-primary flex items-center gap-2"><Plus size={15} /> Periode Baru</button>
@@ -87,7 +100,7 @@ export default function RefineryReconciliation() {
 
       {/* Detail full-width */}
       <div>
-        {editing ? <BalanceForm form={form} setForm={setForm} onSave={save} onCancel={() => setEditing(false)} saving={saving} isNew={editing === 'new'} />
+        {editing ? <BalanceForm form={form} setForm={setForm} onSave={save} onCancel={() => setEditing(false)} saving={saving} isNew={editing === 'new'} onTarik={tarikDariLog} />
           : detail ? <ReconciliationView detail={detail} onEdit={startEdit} onDelete={del} />
             : <div className="card text-center text-gray-400 py-16">Belum ada periode. Klik "Periode Baru" untuk mulai rekonsiliasi.</div>}
       </div>
@@ -96,7 +109,7 @@ export default function RefineryReconciliation() {
 }
 
 /* ─── Form input produksi ─── */
-function BalanceForm({ form, setForm, onSave, onCancel, saving, isNew }) {
+function BalanceForm({ form, setForm, onSave, onCancel, saving, isNew, onTarik }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
   const numField = (k, label, hint) => (
     <div>
@@ -111,6 +124,13 @@ function BalanceForm({ form, setForm, onSave, onCancel, saving, isNew }) {
         <h3 className="font-bold text-gray-800">{isNew ? 'Periode Baru' : 'Edit Periode'}</h3>
         <button onClick={onCancel} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
       </div>
+
+      {onTarik && (
+        <div className="rounded-xl bg-orange-50 ring-1 ring-orange-200 p-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="text-xs text-orange-800"><b>Isi otomatis</b> dari Produksi Refinery (log harian). Atur rentang tanggal di bawah dulu (kosong = seluruh data), lalu klik.</div>
+          <button onClick={onTarik} className="px-3 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white text-xs font-semibold flex items-center gap-1.5 flex-shrink-0"><ArrowDownToLine size={14} /> Tarik dari Log Harian</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="md:col-span-1">

@@ -73,12 +73,17 @@ router.get('/sounding', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-/* GET /crosscheck — CPO IN (produksi) vs CPO diterima (timbangan) per bulan */
+/* GET /crosscheck — CPO IN (produksi) vs CPO diterima (timbangan) per bulan.
+   Apple-to-apple: timbangan dibatasi ke rentang tanggal log produksi (atau from/to). */
 router.get('/crosscheck', async (req, res) => {
   try {
-    const prod = await db.all(`SELECT to_char(tanggal,'YYYY-MM') ym, COALESCE(SUM(cpo_in),0) mt FROM production_log GROUP BY ym ORDER BY ym`);
+    const rng = await db.get(`SELECT MIN(tanggal) mn, MAX(tanggal) mx FROM production_log`);
+    const from = req.query.from || rng.mn;
+    const to = req.query.to || rng.mx;
+    const prod = await db.all(`SELECT to_char(tanggal,'YYYY-MM') ym, COALESCE(SUM(cpo_in),0) mt
+      FROM production_log WHERE tanggal BETWEEN $1 AND $2 GROUP BY ym ORDER BY ym`, [from, to]);
     const timb = await db.all(`SELECT to_char(tanggal_masuk,'YYYY-MM') ym, COALESCE(SUM(berat_netto_wins),0)/1000.0 mt
-      FROM timbangan WHERE produk='CPO' GROUP BY ym`);
+      FROM timbangan WHERE produk='CPO' AND tanggal_masuk BETWEEN $1 AND $2 GROUP BY ym`, [from, to]);
     const tmap = {}; timb.forEach(t => tmap[t.ym] = +t.mt);
     const rows = prod.map(p => {
       const prodMt = +(+p.mt).toFixed(2), timbMt = +(tmap[p.ym] || 0).toFixed(2);
@@ -89,7 +94,31 @@ router.get('/crosscheck', async (req, res) => {
     });
     const totProd = rows.reduce((s, r) => s + r.produksi_cpo_in, 0);
     const totTimb = rows.reduce((s, r) => s + r.timbangan_cpo, 0);
-    res.json({ rows, total: { produksi: +totProd.toFixed(1), timbangan: +totTimb.toFixed(1), selisih_mt: +(totProd - totTimb).toFixed(1) } });
+    res.json({ rows, rentang: { dari: from, sampai: to }, total: { produksi: +totProd.toFixed(1), timbangan: +totTimb.toFixed(1), selisih_mt: +(totProd - totTimb).toFixed(1) } });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* GET /aggregate?from&to — total log harian dlm bentuk refinery_balance (utk Ringkasan Periode) */
+router.get('/aggregate', async (req, res) => {
+  try {
+    const rng = await db.get(`SELECT MIN(tanggal) mn, MAX(tanggal) mx FROM production_log`);
+    const from = req.query.from || rng.mn, to = req.query.to || rng.mx;
+    const t = await db.get(`SELECT ${sumSql} FROM production_log WHERE tanggal BETWEEN $1 AND $2`, [from, to]);
+    // stok = nilai hari terakhir dalam rentang
+    const last = await db.get(`SELECT cpo_stock_akhir, rbdpo_stock FROM production_log WHERE tanggal BETWEEN $1 AND $2 ORDER BY tanggal DESC LIMIT 1`, [from, to]);
+    const r = c => +(+t[c]).toFixed(2);
+    res.json({
+      rentang: { dari: from, sampai: to },
+      mapped: {
+        periode_label: `${from} s/d ${to}`, tgl_start: from, tgl_end: to,
+        cpo_received: r('cpo_in'), cpo_processed: r('cpo_feed'), cpo_reject: r('cpo_reject'),
+        cpo_stock: +(+(last?.cpo_stock_akhir || 0)).toFixed(2),
+        rbdpo: r('rbdpo'),
+        olein_gross: r('olein'), olein_dispatch: r('olein_despatch'), olein_reject: r('olein_reject'), olein_stock: 0,
+        stearin_gross: r('stearin'), stearin_dispatch: r('stearin_despatch'), stearin_reject: r('stearin_reject'), stearin_stock: 0,
+        pfad: r('pfad'),
+      },
+    });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

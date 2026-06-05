@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Factory, Droplet, TrendingUp, TrendingDown, Scale, AlertTriangle, CheckCircle, Gauge, Layers, ArrowRightLeft } from 'lucide-react'
+import { Factory, Droplet, TrendingUp, TrendingDown, Scale, AlertTriangle, CheckCircle, Gauge, Layers, ArrowRightLeft, Plus, Save, Trash2, X } from 'lucide-react'
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, ComposedChart } from 'recharts'
 import api from '../utils/api'
 
@@ -23,7 +23,7 @@ export default function ProduksiRefinery() {
             <Factory size={22} className="text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">Produksi Refinery</h1>
+            <h1 className="text-xl font-bold text-white tracking-tight">Produksi Refinery <span className="text-[11px] font-semibold text-orange-300/90 align-middle ml-1">OPERASIONAL HARIAN</span></h1>
             <p className="text-sm text-slate-300/80">Neraca massa harian · yield · rekonsiliasi sounding · cross-check</p>
           </div>
         </div>
@@ -115,37 +115,97 @@ function YieldTab() {
 }
 
 /* ───────── LOG HARIAN ───────── */
+const todayStr = () => new Date().toISOString().slice(0, 10)
 function LogTab() {
   const [rows, setRows] = useState(null)
   const [err, setErr] = useState(null)
-  useEffect(() => { api.get('/production/daily').then(r => setRows(r.data)).catch(e => setErr(e.message)) }, [])
+  const [edit, setEdit] = useState(null) // record being added/edited
+  function load() { api.get('/production/daily').then(r => setRows(r.data)).catch(e => setErr(e.message)) }
+  useEffect(() => { load() }, [])
   if (err) return <Err msg={err} />
   if (!rows) return <Loading />
+  async function del(id) {
+    if (!confirm('Hapus baris produksi ini?')) return
+    await api.delete('/production/' + id); load()
+  }
   return (
-    <div className="card overflow-x-auto">
-      <div className="text-sm font-bold text-gray-700 mb-3">Log Produksi Harian — {rows.length} hari (MT)</div>
-      <table className="w-full text-sm whitespace-nowrap">
-        <thead><tr className="border-b border-gray-200 bg-gray-50 text-xs">
-          {['Tanggal', 'CPO In', 'CPO Feed', 'CPO Rej', 'RBDPO', 'RBDPO Feed', 'Olein', 'Stearin', 'PFAD', 'Ref%', 'Olein%'].map(h => <th key={h} className="px-2.5 py-2 text-left font-semibold text-gray-500">{h}</th>)}
-        </tr></thead>
-        <tbody>
-          {rows.map(r => (
-            <tr key={r.id} className="border-b border-gray-50 hover:bg-orange-50/40">
-              <td className="px-2.5 py-1.5 font-medium text-gray-700">{r.tanggal}</td>
-              <td className="px-2.5 py-1.5 font-mono">{fmt(r.cpo_in)}</td>
-              <td className="px-2.5 py-1.5 font-mono">{fmt(r.cpo_feed)}</td>
-              <td className="px-2.5 py-1.5 font-mono text-orange-600">{fmt(r.cpo_reject)}</td>
-              <td className="px-2.5 py-1.5 font-mono text-teal-700">{fmt(r.rbdpo)}</td>
-              <td className="px-2.5 py-1.5 font-mono">{fmt(r.rbdpo_feed)}</td>
-              <td className="px-2.5 py-1.5 font-mono text-green-700">{fmt(r.olein)}</td>
-              <td className="px-2.5 py-1.5 font-mono text-purple-700">{fmt(r.stearin)}</td>
-              <td className="px-2.5 py-1.5 font-mono text-pink-600">{fmt(r.pfad)}</td>
-              <td className="px-2.5 py-1.5 font-mono text-gray-500">{r._yield.refining_yield || '–'}</td>
-              <td className="px-2.5 py-1.5 font-mono text-gray-500">{r._yield.olein_yield || '–'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-3">
+      <div className="flex justify-between items-center">
+        <div className="text-sm text-gray-500">Log Produksi Harian — <b>{rows.length}</b> hari (MT)</div>
+        <button onClick={() => setEdit({ tanggal: todayStr() })} className="btn-primary flex items-center gap-1.5 text-sm"><Plus size={15} /> Input Harian</button>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm whitespace-nowrap">
+          <thead><tr className="border-b border-gray-200 bg-gray-50 text-xs">
+            {['Tanggal', 'CPO In', 'CPO Feed', 'CPO Rej', 'RBDPO', 'RBDPO Feed', 'Olein', 'Stearin', 'PFAD', 'Ref%', 'Olein%', ''].map(h => <th key={h} className="px-2.5 py-2 text-left font-semibold text-gray-500">{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id} className="border-b border-gray-50 hover:bg-orange-50/40 cursor-pointer" onClick={() => setEdit(r)}>
+                <td className="px-2.5 py-1.5 font-medium text-gray-700">{r.tanggal}</td>
+                <td className="px-2.5 py-1.5 font-mono">{fmt(r.cpo_in)}</td>
+                <td className="px-2.5 py-1.5 font-mono">{fmt(r.cpo_feed)}</td>
+                <td className="px-2.5 py-1.5 font-mono text-orange-600">{fmt(r.cpo_reject)}</td>
+                <td className="px-2.5 py-1.5 font-mono text-teal-700">{fmt(r.rbdpo)}</td>
+                <td className="px-2.5 py-1.5 font-mono">{fmt(r.rbdpo_feed)}</td>
+                <td className="px-2.5 py-1.5 font-mono text-green-700">{fmt(r.olein)}</td>
+                <td className="px-2.5 py-1.5 font-mono text-purple-700">{fmt(r.stearin)}</td>
+                <td className="px-2.5 py-1.5 font-mono text-pink-600">{fmt(r.pfad)}</td>
+                <td className="px-2.5 py-1.5 font-mono text-gray-500">{r._yield.refining_yield || '–'}</td>
+                <td className="px-2.5 py-1.5 font-mono text-gray-500">{r._yield.olein_yield || '–'}</td>
+                <td className="px-2.5 py-1.5"><button onClick={e => { e.stopPropagation(); del(r.id) }} className="text-gray-300 hover:text-red-500"><Trash2 size={13} /></button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {edit && <ProdForm rec={edit} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load() }} />}
+    </div>
+  )
+}
+
+const PFIELDS = [
+  ['cpo_in', 'CPO In'], ['cpo_feed', 'CPO Feed'], ['cpo_reject', 'CPO Reject'], ['cpo_stock_akhir', 'Stok CPO Akhir'],
+  ['rbdpo', 'RBDPO'], ['rbdpo_feed', 'RBDPO Feed'], ['rbdpo_reject', 'RBDPO Reject'], ['rbdpo_stock', 'Stok RBDPO'],
+  ['olein', 'Olein'], ['olein_reject', 'Olein Reject'], ['olein_despatch', 'Olein Despatch'],
+  ['stearin', 'Stearin'], ['stearin_reject', 'Stearin Reject'], ['stearin_despatch', 'Stearin Despatch'], ['pfad', 'PFAD'],
+]
+function ProdForm({ rec, onClose, onSaved }) {
+  const [f, setF] = useState({ ...rec, tanggal: (rec.tanggal || todayStr()).slice(0, 10) })
+  const [saving, setSaving] = useState(false)
+  const set = (k, v) => setF(p => ({ ...p, [k]: v }))
+  async function save() {
+    if (!f.tanggal) { alert('Tanggal wajib'); return }
+    setSaving(true)
+    try { await api.post('/production', f); onSaved() }
+    catch (e) { alert(e.response?.data?.error || 'Gagal') } finally { setSaving(false) }
+  }
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+          <h3 className="font-bold text-gray-800">{rec.id ? 'Ubah' : 'Input'} Produksi Harian (MT)</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
+        </div>
+        <div className="p-5">
+          <div className="mb-3 max-w-[200px]">
+            <label className="text-xs text-gray-500 block mb-1">Tanggal *</label>
+            <input type="date" value={f.tanggal} onChange={e => set('tanggal', e.target.value)} className="input w-full" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {PFIELDS.map(([k, lbl]) => (
+              <div key={k}>
+                <label className="text-xs text-gray-500 block mb-1">{lbl}</label>
+                <input type="number" step="any" value={f[k] ?? ''} onChange={e => set(k, e.target.value)} className="input w-full" placeholder="0" />
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-gray-400 mt-3">Tanggal yang sama akan menimpa data harian sebelumnya (upsert). Yield dihitung otomatis.</div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={save} disabled={saving} className="btn-primary flex items-center gap-2"><Save size={15} /> {saving ? '...' : 'Simpan'}</button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -206,7 +266,9 @@ function CrosscheckTab() {
     <div className="space-y-4">
       <div className="card bg-amber-50/60 border-amber-200 text-xs text-amber-800 flex items-start gap-2">
         <ArrowRightLeft size={15} className="mt-0.5 flex-shrink-0" />
-        <div>Validasi <b>CPO IN</b> (catatan produksi refinery) vs <b>CPO diterima di timbangan</b> per bulan. Selisih besar = ada CPO masuk yang belum/salah tercatat di salah satu sistem.</div>
+        <div>Validasi <b>CPO IN</b> (catatan produksi refinery) vs <b>CPO diterima di timbangan</b> per bulan. Selisih besar = ada CPO masuk yang belum/salah tercatat di salah satu sistem.
+          {d.rentang && <span className="block mt-1 text-amber-700/80">📅 Apple-to-apple: timbangan dibatasi rentang log produksi <b>{d.rentang.dari} s/d {d.rentang.sampai}</b> (riwayat timbangan sebelum periode ini tidak dihitung).</span>}
+        </div>
       </div>
       <div className="card">
         <div className="text-sm font-bold text-gray-700 mb-3">Produksi vs Timbangan (MT)</div>

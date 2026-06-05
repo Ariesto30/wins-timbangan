@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, FlaskConical, Database, Wallet, Scale } from 'lucide-react'
+import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, FlaskConical, Database, Wallet, Scale, Gauge } from 'lucide-react'
 import api from '../utils/api'
 
 const SHEET_INFO = [
@@ -7,6 +7,7 @@ const SHEET_INFO = [
   { name: 'Mutasi Stok', icon: Database, target: 'Tank Inventory', color: 'text-sky-600' },
   { name: 'Pembayaran', icon: Wallet, target: 'Payment & Aging', color: 'text-green-600' },
   { name: 'Backfill Timbangan', icon: Scale, target: 'Data Timbangan', color: 'text-amber-600' },
+  { name: 'Produksi Harian', icon: Gauge, target: 'Produksi Refinery', color: 'text-orange-600' },
 ]
 
 export default function ImportData() {

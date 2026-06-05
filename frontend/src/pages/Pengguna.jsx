@@ -31,8 +31,8 @@ export default function Pengguna() {
     <div className="space-y-5 max-w-2xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white">Manajemen Pengguna</h1>
-          <p className="text-sm text-slate-500">{users.length} pengguna terdaftar</p>
+          <h1 className="text-xl font-bold text-gray-800">Manajemen Pengguna</h1>
+          <p className="text-sm text-gray-400">{users.length} pengguna terdaftar</p>
         </div>
         <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
           <UserPlus size={16} /> Tambah Pengguna
@@ -42,7 +42,7 @@ export default function Pengguna() {
       <div className="card p-0 overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-wins-border">
+            <tr className="border-b border-gray-200">
               <th className="table-header">Nama</th>
               <th className="table-header">Username</th>
               <th className="table-header">Role</th>
@@ -52,36 +52,36 @@ export default function Pengguna() {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u.id} className="border-b border-wins-border/50">
-                <td className="table-cell font-medium text-white">{u.nama_lengkap || u.username}</td>
-                <td className="table-cell text-slate-400 font-mono text-sm">{u.username}</td>
+              <tr key={u.id} className="border-b border-gray-100">
+                <td className="table-cell font-medium text-gray-800">{u.nama_lengkap || u.username}</td>
+                <td className="table-cell text-gray-500 font-mono text-sm">{u.username}</td>
                 <td className="table-cell"><span className={ROLE_COLOR[u.role]}>{ROLE_LABEL[u.role]}</span></td>
                 <td className="table-cell"><span className={u.aktif ? 'badge-success' : 'badge-neutral'}>{u.aktif ? 'Aktif' : 'Nonaktif'}</span></td>
-                <td className="table-cell text-xs text-slate-500">{u.created_at?.split('T')[0] || u.created_at}</td>
+                <td className="table-cell text-xs text-gray-400">{u.created_at?.split('T')[0] || u.created_at}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      <div className="card bg-wins-dark/50">
-        <h3 className="text-sm font-semibold text-slate-300 mb-3">Hak Akses per Role</h3>
-        <div className="space-y-2 text-xs text-slate-400">
-          <div><strong className="text-red-400">Admin</strong> — Akses penuh: input, edit, hapus, kontrak, laporan, kelola pengguna</div>
-          <div><strong className="text-yellow-400">Manajer</strong> — Input, edit, lihat semua laporan & kontrak (tidak bisa hapus & kelola pengguna)</div>
-          <div><strong className="text-blue-400">Operator</strong> — Input dan edit data milik sendiri saja, tidak bisa hapus atau akses kontrak</div>
+      <div className="card bg-gray-50/50">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Hak Akses per Role</h3>
+        <div className="space-y-2 text-xs text-gray-500">
+          <div><strong className="text-red-600">Admin</strong> — Akses penuh: input, edit, hapus, kontrak, laporan, kelola pengguna</div>
+          <div><strong className="text-yellow-600">Manajer</strong> — Input, edit, lihat semua laporan & kontrak (tidak bisa hapus & kelola pengguna)</div>
+          <div><strong className="text-blue-600">Operator</strong> — Input dan edit data milik sendiri saja, tidak bisa hapus atau akses kontrak</div>
         </div>
       </div>
 
       {showModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-wins-card border border-wins-border rounded-xl w-full max-w-md">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-wins-border">
-              <h2 className="font-semibold text-white">Tambah Pengguna Baru</h2>
-              <button onClick={() => setShowModal(false)}><X size={18} className="text-slate-400 hover:text-white" /></button>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border border-gray-200 rounded-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200">
+              <h2 className="font-semibold text-gray-800">Tambah Pengguna Baru</h2>
+              <button onClick={() => setShowModal(false)}><X size={18} className="text-gray-500 hover:text-gray-800" /></button>
             </div>
             <div className="p-5 space-y-4">
-              {error && <p className="text-red-400 text-sm bg-red-900/20 px-3 py-2 rounded-lg">{error}</p>}
+              {error && <p className="text-red-600 text-sm bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
               <div><label className="label">Nama Lengkap</label><input className="input" value={form.nama_lengkap} onChange={e => setForm(f => ({ ...f, nama_lengkap: e.target.value }))} /></div>
               <div><label className="label">Username *</label><input className="input" value={form.username} onChange={e => setForm(f => ({ ...f, username: e.target.value }))} /></div>
               <div><label className="label">Password *</label><input type="password" className="input" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} /></div>

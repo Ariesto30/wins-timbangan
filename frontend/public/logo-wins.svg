@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 130" fill="none">
+  <!-- W -->
+  <path d="M10 20 L30 95 L48 50 L52 50 L70 95 L90 20" stroke="#1e40af" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- I -->
+  <line x1="105" y1="20" x2="105" y2="95" stroke="#1e40af" stroke-width="13" stroke-linecap="round"/>
+  <!-- N -->
+  <path d="M125 95 L125 20 L175 95 L175 20" stroke="#1e40af" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- S -->
+  <path d="M225 32 Q225 20 210 20 L200 20 Q190 20 190 32 Q190 47 210 50 L218 52 Q235 55 235 75 Q235 95 218 95 L200 95 Q185 95 185 82" stroke="#1e40af" stroke-width="13" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Water drop (orange) di antara W dan I -->
+  <path d="M48 38 C 48 30, 56 22, 60 12 C 64 22, 72 30, 72 38 C 72 48, 66 54, 60 54 C 54 54, 48 48, 48 38 Z" fill="#f97316"/>
+  <!-- Subtitle -->
+  <text x="10" y="115" font-family="Arial, sans-serif" font-weight="800" font-size="14" fill="#1e3a8a">PT. Wijaya Inti</text>
+  <text x="10" y="128" font-family="Arial, sans-serif" font-weight="800" font-size="14" fill="#1e3a8a">Nusantara Sawit</text>
+</svg>

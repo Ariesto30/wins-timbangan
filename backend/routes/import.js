@@ -119,7 +119,33 @@ router.post('/', requireRole('admin', 'manajer'), async (req, res) => {
     }
     if (bfRows.length) result['Backfill Timbangan'] = { ok: bfOk, error: bfErr.length, errors: bfErr.slice(0, 5) };
 
-    if (Object.keys(result).length === 0) return res.status(400).json({ error: 'Tidak ada sheet yang dikenali (1-Lab Harian / 2-Mutasi Stok / 3-Pembayaran / 4-Backfill Timbangan)' });
+    // ── 5. Produksi Harian → production_log (upsert by tanggal, MT) ──
+    const prodRows = readSheet(wb.getWorksheet('5-Produksi Harian')).filter(r => !isContoh(r));
+    let prodOk = 0; const prodErr = [];
+    const pick = (r, ...keys) => { for (const k of keys) if (r[k] != null && r[k] !== '') return num(r[k]); return null; };
+    for (const r of prodRows) {
+      const tgl = dstr(r['tanggal*'] || r['tanggal']);
+      if (!tgl) { prodErr.push('baris tanpa tanggal'); continue; }
+      try {
+        await db.run(`INSERT INTO production_log
+          (tanggal,cpo_in,cpo_feed,cpo_reject,rbdpo,rbdpo_feed,rbdpo_reject,olein,olein_reject,olein_despatch,stearin,stearin_reject,stearin_despatch,pfad,created_by)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+          ON CONFLICT (tanggal) DO UPDATE SET
+            cpo_in=EXCLUDED.cpo_in,cpo_feed=EXCLUDED.cpo_feed,cpo_reject=EXCLUDED.cpo_reject,rbdpo=EXCLUDED.rbdpo,
+            rbdpo_feed=EXCLUDED.rbdpo_feed,rbdpo_reject=EXCLUDED.rbdpo_reject,olein=EXCLUDED.olein,olein_reject=EXCLUDED.olein_reject,
+            olein_despatch=EXCLUDED.olein_despatch,stearin=EXCLUDED.stearin,stearin_reject=EXCLUDED.stearin_reject,
+            stearin_despatch=EXCLUDED.stearin_despatch,pfad=EXCLUDED.pfad,updated_at=NOW()`,
+          [tgl, pick(r, 'cpo in (mt)', 'cpo in'), pick(r, 'cpo feed (mt)', 'cpo feed'), pick(r, 'cpo reject (mt)', 'cpo reject'),
+            pick(r, 'rbdpo (mt)', 'rbdpo'), pick(r, 'rbdpo feed (mt)', 'rbdpo feed'), pick(r, 'rbdpo reject (mt)', 'rbdpo reject'),
+            pick(r, 'olein (mt)', 'olein'), pick(r, 'olein reject (mt)', 'olein reject'), pick(r, 'olein despatch (mt)', 'olein despatch'),
+            pick(r, 'stearin (mt)', 'stearin'), pick(r, 'stearin reject (mt)', 'stearin reject'), pick(r, 'stearin despatch (mt)', 'stearin despatch'),
+            pick(r, 'pfad (mt)', 'pfad'), adminId]);
+        prodOk++;
+      } catch (e) { prodErr.push(e.message.slice(0, 60)); }
+    }
+    if (prodRows.length) result['Produksi Harian'] = { ok: prodOk, error: prodErr.length, errors: prodErr.slice(0, 5) };
+
+    if (Object.keys(result).length === 0) return res.status(400).json({ error: 'Tidak ada sheet yang dikenali (1-Lab Harian / 2-Mutasi Stok / 3-Pembayaran / 4-Backfill Timbangan / 5-Produksi Harian)' });
     res.json({ message: 'Import selesai', result });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });

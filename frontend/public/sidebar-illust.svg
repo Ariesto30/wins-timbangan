@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 200" fill="none">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="40%" stop-color="#7c3aed"/>
+      <stop offset="80%" stop-color="#ec4899"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#fff" stop-opacity="0.95"/>
+      <stop offset="60%" stop-color="#fcd34d" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#f97316" stop-opacity="0.6"/>
+    </radialGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky gradient -->
+  <rect x="0" y="0" width="240" height="140" fill="url(#sky)"/>
+
+  <!-- Sun -->
+  <circle cx="180" cy="100" r="32" fill="url(#sun)"/>
+
+  <!-- Mountain silhouette -->
+  <path d="M0 120 L30 95 L55 110 L80 85 L110 105 L140 90 L170 110 L200 95 L240 115 L240 140 L0 140 Z" fill="#1e1b4b" opacity="0.65"/>
+
+  <!-- Water/road -->
+  <rect x="0" y="138" width="240" height="62" fill="url(#water)"/>
+  <!-- Wave reflections -->
+  <path d="M0 150 Q60 145 120 150 T240 150" stroke="#a78bfa" stroke-width="1" opacity="0.4" fill="none"/>
+  <path d="M0 165 Q60 162 120 167 T240 165" stroke="#c4b5fd" stroke-width="1" opacity="0.3" fill="none"/>
+
+  <!-- Palm tree left -->
+  <g transform="translate(20,80)">
+    <path d="M5 50 Q3 30 6 5" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+    <path d="M6 8 Q-10 0 -18 8 M6 8 Q-5 -8 -12 -10 M6 8 Q8 -5 0 -14 M6 8 Q15 -2 22 -8 M6 8 Q18 5 28 0 M6 8 Q16 12 28 14" stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Palm tree right -->
+  <g transform="translate(215,90)">
+    <path d="M3 40 Q5 25 2 5" stroke="#0f172a" stroke-width="2.5" fill="none"/>
+    <path d="M2 8 Q-8 0 -16 4 M2 8 Q-5 -6 -10 -10 M2 8 Q3 -8 -2 -14 M2 8 Q12 -2 18 -8 M2 8 Q14 4 22 0" stroke="#0f172a" stroke-width="2" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- TRUCK -->
+  <g transform="translate(55,135)">
+    <!-- Truck body (cab) -->
+    <rect x="0" y="20" width="35" height="32" rx="4" fill="#facc15" stroke="#ca8a04" stroke-width="1.5"/>
+    <!-- Cab window -->
+    <rect x="6" y="26" width="22" height="14" rx="2" fill="#bfdbfe" stroke="#3b82f6" stroke-width="0.8"/>
+    <!-- Cargo bed -->
+    <rect x="35" y="12" width="80" height="40" rx="3" fill="#eab308" stroke="#a16207" stroke-width="1.5"/>
+    <!-- Cargo content (sawit pile) -->
+    <path d="M40 18 Q55 8 70 14 Q85 6 100 12 Q108 16 112 18 L112 22 L40 22 Z" fill="#f97316" stroke="#c2410c" stroke-width="0.8"/>
+    <circle cx="55" cy="15" r="2.5" fill="#ea580c"/>
+    <circle cx="75" cy="13" r="2.5" fill="#ea580c"/>
+    <circle cx="92" cy="14" r="2.5" fill="#ea580c"/>
+    <!-- Wheels -->
+    <circle cx="14" cy="55" r="6" fill="#1f2937" stroke="#000" stroke-width="0.5"/>
+    <circle cx="14" cy="55" r="2.5" fill="#6b7280"/>
+    <circle cx="55" cy="55" r="6" fill="#1f2937" stroke="#000" stroke-width="0.5"/>
+    <circle cx="55" cy="55" r="2.5" fill="#6b7280"/>
+    <circle cx="75" cy="55" r="6" fill="#1f2937" stroke="#000" stroke-width="0.5"/>
+    <circle cx="75" cy="55" r="2.5" fill="#6b7280"/>
+    <circle cx="100" cy="55" r="6" fill="#1f2937" stroke="#000" stroke-width="0.5"/>
+    <circle cx="100" cy="55" r="2.5" fill="#6b7280"/>
+    <!-- Headlight -->
+    <circle cx="3" cy="42" r="1.5" fill="#fef3c7"/>
+    <!-- Exhaust smoke -->
+    <circle cx="32" cy="6" r="3" fill="#cbd5e1" opacity="0.6"/>
+    <circle cx="36" cy="2" r="2.5" fill="#cbd5e1" opacity="0.5"/>
+  </g>
+</svg>
