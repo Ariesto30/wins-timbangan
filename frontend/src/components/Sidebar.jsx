@@ -1,8 +1,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight, TrendingUp } from 'lucide-react'
+import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight, TrendingUp, Sunrise, Brain } from 'lucide-react'
 import { getUser, logout, hasRole } from '../utils/auth'
 
 const nav = [
+  { section: 'Eksekutif' },
+  { to: '/briefing',   icon: Sunrise,         label: 'Daily Briefing',   roles: ['admin','manajer'] },
+  { to: '/insight',    icon: Brain,           label: 'Insight Center',   roles: ['admin','manajer'] },
   { section: 'Operasional' },
   { to: '/',           icon: LayoutDashboard, label: 'Dashboard',        roles: ['admin','operator','manajer'] },
   { to: '/input',      icon: Scale,           label: 'Input Timbangan',  roles: ['admin','operator','manajer'] },

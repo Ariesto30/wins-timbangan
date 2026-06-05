@@ -28,6 +28,7 @@ app.use('/api/tank', require('./routes/tank'));
 app.use('/api/quality', require('./routes/quality'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/harga', require('./routes/harga'));
+app.use('/api/insight', require('./routes/insight'));
 
 // Master data
 app.get('/api/relasi', authenticate, async (req, res) => {
