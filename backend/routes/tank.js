@@ -21,6 +21,22 @@ async function captureSnapshot(tanggal) {
 
 router.use(authenticate);
 
+/* Setel stok terkini sebuah tangki ke nilai target dgn membuat pergerakan
+   penyesuaian (selisih vs closing terakhir). Dipakai form Edit/Tangki Baru. */
+async function setStok(tankId, target, userId) {
+  const last = await db.get(`SELECT closing FROM tank_movement WHERE tank_id=$1 ORDER BY tanggal DESC, id DESC LIMIT 1`, [tankId]);
+  const opening = last ? Number(last.closing) : 0;
+  const tgt = Number(target);
+  if (!isFinite(tgt) || Math.abs(tgt - opening) < 1e-6) return; // tak berubah
+  const delta = tgt - opening;
+  const inb = delta > 0 ? delta : 0;
+  const outb = delta < 0 ? -delta : 0;
+  const tanggal = new Date().toISOString().slice(0, 10);
+  await db.run(`INSERT INTO tank_movement (tank_id, tanggal, opening, inbound, outbound, closing, catatan, created_by)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+    [tankId, tanggal, opening, inb, outb, tgt, 'Penyesuaian stok (set manual)', userId || null]);
+}
+
 /* ───────── TANK INVENTORY — master tangki + pergerakan stok ───────── */
 
 // GET semua tangki + stok terkini (closing terakhir) + utilisasi + retensi
@@ -58,6 +74,7 @@ router.post('/', requireRole('admin', 'manajer'), async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
       [b.no_urut || null, b.kode || null, b.nama, b.produk || null, Number(b.kapasitas_mt) || 0, b.lokasi || null,
         b.awal_filling || null, b.akhir_filling || null, b.be_digunakan || null, b.catatan || null]);
+    if (b.stok_set != null && b.stok_set !== '') await setStok(r.id, b.stok_set, req.user.id);
     res.json(r);
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
@@ -70,6 +87,7 @@ router.put('/:id', requireRole('admin', 'manajer'), async (req, res) => {
       awal_filling=$7, akhir_filling=$8, be_digunakan=$9, catatan=$10, aktif=$11 WHERE id=$12`,
       [b.no_urut || null, b.kode || null, b.nama, b.produk || null, Number(b.kapasitas_mt) || 0, b.lokasi || null,
         b.awal_filling || null, b.akhir_filling || null, b.be_digunakan || null, b.catatan || null, b.aktif ?? 1, req.params.id]);
+    if (b.stok_set != null && b.stok_set !== '') await setStok(req.params.id, b.stok_set, req.user.id);
     res.json({ message: 'Tersimpan' });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });

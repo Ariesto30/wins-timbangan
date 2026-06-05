@@ -230,9 +230,12 @@ function TankCard({ t, onEdit, onMove }) {
 }
 
 function TankForm({ tank, onClose, onSaved }) {
-  const [f, setF] = useState(tank)
+  const [f, setF] = useState({ ...tank, stok_set: tank.stok ?? '' })
   const [saving, setSaving] = useState(false)
   const set = (k, v) => setF(p => ({ ...p, [k]: v }))
+  const kap = Number(f.kapasitas_mt) || 0
+  const stk = Number(f.stok_set) || 0
+  const previewPct = kap > 0 ? +(stk / kap * 100).toFixed(1) : null
   async function save() {
     if (!f.nama) { alert('Nama tangki wajib'); return }
     setSaving(true)
@@ -264,6 +267,25 @@ function TankForm({ tank, onClose, onSaved }) {
         </Field>
         <Field label="Kapasitas (MT)"><input type="number" step="any" value={f.kapasitas_mt ?? ''} onChange={e => set('kapasitas_mt', e.target.value)} placeholder="mis. 2500" className="input w-full" /></Field>
         <Field label="Lokasi"><input value={f.lokasi || ''} onChange={e => set('lokasi', e.target.value)} className="input w-full" /></Field>
+      </div>
+
+      {/* Stok saat ini — langsung menggerakkan gauge */}
+      <div className="mt-3 rounded-xl bg-sky-50 ring-1 ring-sky-200 p-3">
+        <div className="text-[11px] font-bold text-sky-700 mb-2 flex items-center gap-1"><Droplets size={13} /> ISI TANGKI (STOK SAAT INI)</div>
+        <div className="grid grid-cols-2 gap-3 items-end">
+          <Field label="Stok Saat Ini (MT)">
+            <input type="number" step="any" value={f.stok_set ?? ''} onChange={e => set('stok_set', e.target.value)} placeholder="mis. 1500" className="input w-full" />
+          </Field>
+          <div className="pb-1">
+            {kap > 0 ? (
+              <div className="flex items-baseline gap-1">
+                <span className="text-2xl font-extrabold tabular-nums" style={{ color: previewPct > 100 ? '#dc2626' : previewPct >= 90 ? '#f97316' : '#0ea5e9' }}>{previewPct}</span>
+                <span className="text-sm font-bold text-slate-400">% terisi</span>
+              </div>
+            ) : <span className="text-[11px] text-amber-600 font-semibold">Isi kapasitas dulu agar % muncul</span>}
+          </div>
+        </div>
+        <div className="text-[10px] text-slate-500 mt-1.5">Mengetik stok di sini otomatis membuat pergerakan penyesuaian — tinggi cairan di kartu langsung terisi.</div>
       </div>
       <div className="mt-3 pt-3 border-t border-gray-100">
         <div className="text-[11px] font-bold text-gray-500 mb-2">RETENSI & STABILITAS (opsional)</div>
