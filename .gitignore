@@ -38,3 +38,7 @@ Thumbs.db
 # Misc
 .cache/
 .parcel-cache/
+
+# Excel lock/temp files
+~$*
+*.tmp
