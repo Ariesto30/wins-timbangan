@@ -159,7 +159,8 @@ function IsoTank({ pct, produk }) {
 function TankCard({ t, onEdit, onMove }) {
   const pct = t.util_pct
   const [c] = palette(t.produk)
-  const st = tankStatus(pct)
+  const noCap = !t.kapasitas_mt || t.kapasitas_mt <= 0
+  const st = noCap ? { label: 'Set Kapasitas', cls: 'bg-amber-100 text-amber-700 ring-amber-200', dot: '#f59e0b' } : tankStatus(pct)
   const retHigh = t.hari_tersimpan != null && t.hari_tersimpan > 45
   return (
     <div className="tank-card relative rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -207,7 +208,7 @@ function TankCard({ t, onEdit, onMove }) {
             {/* Volume */}
             <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-2.5 py-2 space-y-1">
               <div className="flex justify-between text-xs"><span className="text-slate-400">Stok</span><span className="font-bold font-mono text-slate-700">{fmt(t.stok)}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-slate-400">Kapasitas</span><span className="font-mono text-slate-500">{fmt(t.kapasitas_mt)} MT</span></div>
+              <div className="flex justify-between text-xs"><span className="text-slate-400">Kapasitas</span>{noCap ? <button onClick={onEdit} className="text-amber-600 font-semibold underline decoration-dotted">belum diset → isi</button> : <span className="font-mono text-slate-500">{fmt(t.kapasitas_mt)} MT</span>}</div>
               {t.hari_tersimpan != null && (
                 <div className="flex justify-between text-xs pt-1 border-t border-slate-200/70">
                   <span className="text-slate-400">Retensi</span>
