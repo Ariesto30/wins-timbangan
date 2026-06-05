@@ -304,6 +304,52 @@ async function initDB() {
     );
   `);
 
+  // Log produksi harian refinery (neraca massa) — semua dlm MT
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS production_log (
+      id SERIAL PRIMARY KEY,
+      tanggal DATE UNIQUE NOT NULL,
+      cpo_in REAL DEFAULT 0,
+      cpo_stock_timbangan REAL DEFAULT 0,
+      cpo_stock REAL DEFAULT 0,
+      cpo_feed REAL DEFAULT 0,
+      cpo_reject REAL DEFAULT 0,
+      cpo_stock_akhir REAL DEFAULT 0,
+      rbdpo REAL DEFAULT 0,
+      rbdpo_feed REAL DEFAULT 0,
+      rbdpo_reject REAL DEFAULT 0,
+      rbdpo_stock REAL DEFAULT 0,
+      olein REAL DEFAULT 0,
+      olein_reject REAL DEFAULT 0,
+      olein_despatch REAL DEFAULT 0,
+      stearin REAL DEFAULT 0,
+      stearin_reject REAL DEFAULT 0,
+      stearin_despatch REAL DEFAULT 0,
+      pfad REAL DEFAULT 0,
+      catatan TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  // Rekonsiliasi sounding fisik vs stok buku (DC) per bulan per produk
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sounding_recon (
+      id SERIAL PRIMARY KEY,
+      periode DATE NOT NULL,
+      periode_label TEXT,
+      produk TEXT NOT NULL,
+      sounding_kg REAL DEFAULT 0,
+      dc_kg REAL DEFAULT 0,
+      variance_kg REAL DEFAULT 0,
+      variance_pct REAL DEFAULT 0,
+      catatan TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(periode, produk)
+    );
+  `);
+
   // Index
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_timbangan_tanggal ON timbangan(tanggal_masuk);`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_timbangan_relasi ON timbangan(relasi_id);`);

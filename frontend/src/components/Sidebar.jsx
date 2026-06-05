@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight, TrendingUp, Sunrise, Brain, Upload } from 'lucide-react'
+import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight, TrendingUp, Sunrise, Brain, Upload, Gauge } from 'lucide-react'
 import { getUser, logout, hasRole } from '../utils/auth'
 
 const nav = [
@@ -13,6 +13,7 @@ const nav = [
   { to: '/data',       icon: FileSpreadsheet, label: 'Data Timbangan',   roles: ['admin','operator','manajer'] },
   { to: '/kontrak',    icon: FileText,        label: 'Kontrak',          roles: ['admin','manajer'] },
   { section: 'Produksi & Stok' },
+  { to: '/produksi',   icon: Gauge,           label: 'Produksi Refinery',roles: ['admin','manajer'] },
   { to: '/refinery',   icon: Factory,         label: 'Refinery Balance', roles: ['admin','manajer'] },
   { to: '/tank',       icon: Database,        label: 'Tank Inventory',   roles: ['admin','manajer'] },
   { to: '/quality',    icon: FlaskConical,    label: 'Quality Log',      roles: ['admin','manajer'] },

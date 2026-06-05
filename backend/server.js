@@ -24,6 +24,7 @@ app.use('/api/kontrak', require('./routes/kontrak'));
 app.use('/api/armada', require('./routes/armada'));
 app.use('/api/audit', require('./routes/audit'));
 app.use('/api/refinery', require('./routes/refinery'));
+app.use('/api/production', require('./routes/production'));
 app.use('/api/tank', require('./routes/tank'));
 app.use('/api/quality', require('./routes/quality'));
 app.use('/api/payment', require('./routes/payment'));
