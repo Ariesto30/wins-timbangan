@@ -209,6 +209,20 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+  // Snapshot stok tangki harian (fondasi tren & forecast)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tank_snapshot (
+      id SERIAL PRIMARY KEY,
+      tanggal DATE NOT NULL,
+      tank_id INTEGER REFERENCES tank(id) ON DELETE CASCADE,
+      produk TEXT,
+      stok_mt REAL DEFAULT 0,
+      kapasitas_mt REAL DEFAULT 0,
+      util REAL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(tanggal, tank_id)
+    );
+  `);
   // Harga pasar komoditas (PORAM/KPBN/FCPO/MPOB/Manual)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS harga_pasar (

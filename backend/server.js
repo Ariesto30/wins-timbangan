@@ -29,6 +29,21 @@ app.use('/api/quality', require('./routes/quality'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/harga', require('./routes/harga'));
 app.use('/api/insight', require('./routes/insight'));
+const cronRoute = require('./routes/cron');
+app.use('/api/cron', cronRoute);
+
+// Scheduler in-process (backup): jalankan tugas harian ~18:00 selama server hidup
+let lastCronDate = null;
+setInterval(async () => {
+  const now = new Date();
+  const wib = new Date(now.getTime() + 7 * 3600000); // UTC+7
+  const today = wib.toISOString().slice(0, 10);
+  if (wib.getUTCHours() === 11 && lastCronDate !== today) { // 11 UTC = 18:00 WIB
+    lastCronDate = today;
+    try { const r = await cronRoute.runDaily(); console.log('⏰ Cron harian:', JSON.stringify(r).slice(0, 200)); }
+    catch (e) { console.error('Cron error:', e.message); }
+  }
+}, 10 * 60 * 1000); // cek tiap 10 menit
 
 // Master data
 app.get('/api/relasi', authenticate, async (req, res) => {

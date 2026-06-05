@@ -59,20 +59,27 @@ function parsePrices(text, tanggal) {
   return rows;
 }
 
+/* Tarik dari online & simpan (dipakai route + cron) */
+async function runFetchAndStore() {
+  const data = await fetchSource();
+  if (!data) return { ok: false, saved: 0 };
+  let saved = 0;
+  for (const r of data.rows) {
+    await db.run(`INSERT INTO harga_pasar (tanggal, sumber, produk, harga, mata_uang, basis, periode, auto)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,true)
+      ON CONFLICT (tanggal, sumber, produk, periode) DO UPDATE SET harga=EXCLUDED.harga, mata_uang=EXCLUDED.mata_uang, basis=EXCLUDED.basis, auto=true`,
+      [r.tanggal, r.sumber, r.produk, r.harga, r.mata_uang, r.basis, 'spot']);
+    saved++;
+  }
+  return { ok: true, saved, tanggal: data.tanggal, url: data.url, rows: data.rows };
+}
+
 /* POST /fetch — tarik dari online & simpan */
 router.post('/fetch', requireRole('admin', 'manajer'), async (req, res) => {
   try {
-    const data = await fetchSource();
-    if (!data) return res.status(502).json({ error: 'Sumber harga online tidak dapat dijangkau / belum ada update hari ini. Coba lagi nanti atau input manual.' });
-    let saved = 0;
-    for (const r of data.rows) {
-      await db.run(`INSERT INTO harga_pasar (tanggal, sumber, produk, harga, mata_uang, basis, periode, auto)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,true)
-        ON CONFLICT (tanggal, sumber, produk, periode) DO UPDATE SET harga=EXCLUDED.harga, mata_uang=EXCLUDED.mata_uang, basis=EXCLUDED.basis, auto=true`,
-        [r.tanggal, r.sumber, r.produk, r.harga, r.mata_uang, r.basis, 'spot']);
-      saved++;
-    }
-    res.json({ message: `${saved} harga ter-update dari online (${data.tanggal})`, tanggal: data.tanggal, source_url: data.url, rows: data.rows });
+    const r = await runFetchAndStore();
+    if (!r.ok) return res.status(502).json({ error: 'Sumber harga online tidak dapat dijangkau / belum ada update hari ini. Coba lagi nanti atau input manual.' });
+    res.json({ message: `${r.saved} harga ter-update dari online (${r.tanggal})`, tanggal: r.tanggal, source_url: r.url, rows: r.rows });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
@@ -148,3 +155,4 @@ router.delete('/:id', requireRole('admin', 'manajer'), async (req, res) => {
 });
 
 module.exports = router;
+module.exports.runFetchAndStore = runFetchAndStore;

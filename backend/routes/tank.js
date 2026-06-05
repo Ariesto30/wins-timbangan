@@ -2,6 +2,23 @@ const router = require('express').Router();
 const db = require('../db/pg');
 const { authenticate, requireRole } = require('../middleware/auth');
 
+/* Rekam snapshot stok semua tangki utk tanggal tertentu (dipakai route + cron) */
+async function captureSnapshot(tanggal) {
+  const tgl = tanggal || new Date().toISOString().slice(0, 10);
+  const tanks = await db.all(`SELECT id, produk, kapasitas_mt FROM tank WHERE aktif=1`);
+  let n = 0;
+  for (const t of tanks) {
+    const last = await db.get(`SELECT closing FROM tank_movement WHERE tank_id=$1 ORDER BY tanggal DESC, id DESC LIMIT 1`, [t.id]);
+    const stok = last ? Number(last.closing) : 0;
+    const util = t.kapasitas_mt > 0 ? +(stok / t.kapasitas_mt * 100).toFixed(1) : 0;
+    await db.run(`INSERT INTO tank_snapshot (tanggal, tank_id, produk, stok_mt, kapasitas_mt, util)
+      VALUES ($1,$2,$3,$4,$5,$6) ON CONFLICT (tanggal, tank_id) DO UPDATE SET stok_mt=EXCLUDED.stok_mt, util=EXCLUDED.util`,
+      [tgl, t.id, t.produk, stok, t.kapasitas_mt, util]);
+    n++;
+  }
+  return { tanggal: tgl, captured: n };
+}
+
 router.use(authenticate);
 
 /* ───────── TANK INVENTORY — master tangki + pergerakan stok ───────── */
@@ -92,4 +109,32 @@ router.delete('/movements/:mid', requireRole('admin', 'manajer'), async (req, re
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+/* POST /snapshot — rekam stok hari ini */
+router.post('/snapshot', requireRole('admin', 'manajer'), async (req, res) => {
+  try { res.json(await captureSnapshot(req.body.tanggal)); }
+  catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* GET /forecast — prediksi hari menuju penuh/kosong dari tren snapshot */
+router.get('/forecast', async (req, res) => {
+  try {
+    const tanks = await db.all(`SELECT id, no_urut, nama, produk, kapasitas_mt FROM tank WHERE aktif=1 ORDER BY no_urut`);
+    const out = [];
+    for (const t of tanks) {
+      const snaps = await db.all(`SELECT tanggal, stok_mt FROM tank_snapshot WHERE tank_id=$1 ORDER BY tanggal DESC LIMIT 14`, [t.id]);
+      if (snaps.length < 2) { out.push({ ...t, status: 'DATA KURANG', n: snaps.length }); continue; }
+      const newest = snaps[0], oldest = snaps[snaps.length - 1];
+      const days = Math.max(1, Math.round((new Date(newest.tanggal) - new Date(oldest.tanggal)) / 86400000));
+      const rate = (Number(newest.stok_mt) - Number(oldest.stok_mt)) / days; // MT/hari
+      const stok = Number(newest.stok_mt), kap = Number(t.kapasitas_mt);
+      let prediksi = null, arah = 'stabil';
+      if (rate > 0.1) { arah = 'naik'; prediksi = kap > stok ? Math.round((kap - stok) / rate) : 0; }
+      else if (rate < -0.1) { arah = 'turun'; prediksi = stok > 0 ? Math.round(stok / -rate) : 0; }
+      out.push({ no_urut: t.no_urut, nama: t.nama, produk: t.produk, stok: +stok.toFixed(1), kapasitas: kap, util: +(stok / kap * 100).toFixed(1), rate: +rate.toFixed(1), arah, prediksi_hari: prediksi, n: snaps.length });
+    }
+    res.json({ forecast: out });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;
+module.exports.captureSnapshot = captureSnapshot;

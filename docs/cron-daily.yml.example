@@ -1,0 +1,21 @@
+name: Cron Harian WINS (harga + snapshot)
+
+# Jalan tiap hari 18:00 WIB (11:00 UTC). Bisa juga dipicu manual.
+on:
+  schedule:
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Panggil endpoint cron produksi
+        run: |
+          echo "Memanggil cron harian..."
+          curl -fsS --max-time 120 \
+            "${{ secrets.WINS_BASE_URL }}/api/cron/daily?key=${{ secrets.CRON_KEY }}" \
+            -H "x-cron-key: ${{ secrets.CRON_KEY }}" \
+            -o response.json || (echo "Gagal memanggil cron"; cat response.json; exit 1)
+          echo "Respons:"
+          cat response.json
