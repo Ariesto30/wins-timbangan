@@ -240,6 +240,18 @@ async function initDB() {
       UNIQUE(tanggal, sumber, produk, periode)
     );
   `);
+  // Kurs harian (mata uang -> IDR)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS kurs (
+      id SERIAL PRIMARY KEY,
+      tanggal DATE NOT NULL,
+      mata_uang TEXT NOT NULL,
+      nilai_idr REAL NOT NULL,
+      sumber TEXT DEFAULT 'open.er-api',
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(tanggal, mata_uang)
+    );
+  `);
   // Refinery mass-balance / raw & stock balancing per periode cut-off
   await pool.query(`
     CREATE TABLE IF NOT EXISTS refinery_balance (
