@@ -19,6 +19,7 @@ import PaymentAging from './pages/PaymentAging'
 import HargaPasar from './pages/HargaPasar'
 import DailyBriefing from './pages/DailyBriefing'
 import InsightCenter from './pages/InsightCenter'
+import ImportData from './pages/ImportData'
 import Pengguna from './pages/Pengguna'
 
 function PrivateRoute({ children }) {
@@ -169,6 +170,7 @@ export default function App() {
       <Route path="/harga" element={<PrivateRoute><Layout><HargaPasar /></Layout></PrivateRoute>} />
       <Route path="/briefing" element={<PrivateRoute><Layout><DailyBriefing /></Layout></PrivateRoute>} />
       <Route path="/insight" element={<PrivateRoute><Layout><InsightCenter /></Layout></PrivateRoute>} />
+      <Route path="/import" element={<PrivateRoute><Layout><ImportData /></Layout></PrivateRoute>} />
       <Route path="/pengguna" element={<PrivateRoute><Layout><Pengguna /></Layout></PrivateRoute>} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>

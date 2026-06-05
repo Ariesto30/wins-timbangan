@@ -29,6 +29,7 @@ app.use('/api/quality', require('./routes/quality'));
 app.use('/api/payment', require('./routes/payment'));
 app.use('/api/harga', require('./routes/harga'));
 app.use('/api/insight', require('./routes/insight'));
+app.use('/api/import', require('./routes/import'));
 const cronRoute = require('./routes/cron');
 app.use('/api/cron', cronRoute);
 

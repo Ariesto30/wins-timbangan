@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight, TrendingUp, Sunrise, Brain } from 'lucide-react'
+import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Users, LogOut, Leaf, ClipboardPaste, Shield, Factory, Database, FlaskConical, Wallet, Pin, PinOff, PanelLeftClose, ChevronRight, TrendingUp, Sunrise, Brain, Upload } from 'lucide-react'
 import { getUser, logout, hasRole } from '../utils/auth'
 
 const nav = [
@@ -23,6 +23,7 @@ const nav = [
   { to: '/harga',      icon: TrendingUp,      label: 'Harga Pasar',      roles: ['admin','manajer'] },
   { to: '/audit',      icon: Shield,          label: 'Audit Forensik',   roles: ['admin','manajer'] },
   { section: 'Sistem' },
+  { to: '/import',     icon: Upload,          label: 'Import Data',      roles: ['admin','manajer'] },
   { to: '/pengguna',   icon: Users,           label: 'Pengguna',         roles: ['admin'] },
 ]
 
