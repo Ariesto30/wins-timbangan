@@ -262,7 +262,7 @@ function TankForm({ tank, onClose, onSaved }) {
             <option value="">— pilih —</option>{PRODUK.map(p => <option key={p}>{p}</option>)}
           </select>
         </Field>
-        <Field label="Kapasitas (MT)"><input type="number" step="any" value={f.kapasitas_mt} onChange={e => set('kapasitas_mt', e.target.value)} className="input w-full" /></Field>
+        <Field label="Kapasitas (MT)"><input type="number" step="any" value={f.kapasitas_mt ?? ''} onChange={e => set('kapasitas_mt', e.target.value)} placeholder="mis. 2500" className="input w-full" /></Field>
         <Field label="Lokasi"><input value={f.lokasi || ''} onChange={e => set('lokasi', e.target.value)} className="input w-full" /></Field>
       </div>
       <div className="mt-3 pt-3 border-t border-gray-100">
