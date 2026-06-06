@@ -23,20 +23,17 @@ const monthLabel = (str) => {
 const TT = { backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, color: '#1e293b', fontSize: 12, boxShadow: '0 4px 12px rgba(0,0,0,.1)' }
 
 /* ─── KPI CARD (FULL GRADIENT) ───────────────────────── */
-function KpiCard({ label, value, sub, icon, gradient }) {
+function KpiCard({ label, value, sub, icon, accent = '#3B82F6' }) {
   return (
-    <div className="rounded-2xl shadow-lg p-4 flex flex-col gap-2 min-w-0 text-white relative overflow-hidden"
-      style={{ background: gradient }}>
-      <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full bg-white/10"></div>
-      <div className="absolute -right-8 -bottom-8 w-20 h-20 rounded-full bg-white/5"></div>
-      <div className="flex items-center justify-between relative z-10">
-        <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider leading-tight">{label}</span>
-        <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+    <div className="card flex flex-col gap-1.5 min-w-0" style={{ borderLeft: `3px solid ${accent}` }}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider leading-tight">{label}</span>
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: accent + '14', color: accent }}>
           {icon}
         </div>
       </div>
-      <div className="text-[28px] font-extrabold leading-tight truncate text-white relative z-10">{value}</div>
-      {sub && <div className="text-[11px] text-white/75 leading-tight relative z-10">{sub}</div>}
+      <div className="text-[26px] font-extrabold leading-tight truncate text-gray-900 tabular-nums">{value}</div>
+      {sub && <div className="text-[11px] text-gray-400 leading-tight">{sub}</div>}
     </div>
   )
 }
@@ -294,27 +291,27 @@ export default function Dashboard() {
 
         <div className="p-4 space-y-3">
 
-          {/* 6 KPI CARDS — full gradient */}
+          {/* 6 KPI CARDS — executive netral (3 warna brand) */}
           <div className="grid grid-cols-6 gap-3">
             <KpiCard label="Total Netto (Ton)" value={fmt.tonRaw(totalNetto)}
               sub={prevNetto > 0 ? `vs Prev: ${(prevNetto / 1000).toFixed(0)} Ton` : 'Semua periode'}
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4M21 7v10l-9 4"/></svg>}
-              gradient="linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-5 h-5"><path d="M3 7l9-4 9 4-9 4-9-4zM3 7v10l9 4M21 7v10l-9 4"/></svg>}
+              accent="#3B82F6" />
             <KpiCard label="Total Netto (Kg)" value={totalNetto.toLocaleString('id-ID')} sub="Kg"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>}
-              gradient="linear-gradient(135deg, #10b981 0%, #047857 100%)" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-5 h-5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M9 12l2 2 4-4" /></svg>}
+              accent="#10B981" />
             <KpiCard label="Total Ritasi (Trip)" value={fmt.num(kpi?.total_trip)} sub="Trip"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><path d="M1 3h15l4 8H1V3z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /></svg>}
-              gradient="linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-5 h-5"><path d="M1 3h15l4 8H1V3z" /><circle cx="5.5" cy="18.5" r="2.5" /><circle cx="17.5" cy="18.5" r="2.5" /></svg>}
+              accent="#F59E0B" />
             <KpiCard label="Rata-rata / Trip" value={fmt.num(kpi?.avg_netto_trip)} sub="Kg / Trip"
-              icon={<svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5} className="w-5 h-5"><path d="M3 12c0-1 1-2 2-2s2 1 2 2v6h10v-6c0-1 1-2 2-2s2 1 2 2M5 18v2M19 18v2M9 6l3-3 3 3M12 3v9"/></svg>}
-              gradient="linear-gradient(135deg, #ec4899 0%, #be185d 100%)" />
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} className="w-5 h-5"><path d="M3 12c0-1 1-2 2-2s2 1 2 2v6h10v-6c0-1 1-2 2-2s2 1 2 2M5 18v2M19 18v2M9 6l3-3 3 3M12 3v9"/></svg>}
+              accent="#3B82F6" />
             <KpiCard label="Maks Netto / Trip" value={fmt.num(kpi?.maks_netto)} sub="Kg"
-              icon={<TrendingUp size={18} className="text-white" strokeWidth={2.5} />}
-              gradient="linear-gradient(135deg, #f97316 0%, #c2410c 100%)" />
+              icon={<TrendingUp size={18} strokeWidth={2.5} />}
+              accent="#10B981" />
             <KpiCard label="Min Netto / Trip" value={fmt.num(kpi?.min_netto)} sub="Kg"
-              icon={<TrendingDown size={18} className="text-white" strokeWidth={2.5} />}
-              gradient="linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)" />
+              icon={<TrendingDown size={18} strokeWidth={2.5} />}
+              accent="#64748B" />
           </div>
 
           {/* ROW 1: Berat Netto by Relasi (2/3) | Trend Monthly Netto (1/3) */}
@@ -348,18 +345,18 @@ export default function Dashboard() {
                 <AreaChart data={trendData} margin={{ left: 0, right: 15, top: 12, bottom: 0 }}>
                   <defs>
                     <linearGradient id="blueGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#a855f7" stopOpacity={0.4} />
-                      <stop offset="50%" stopColor="#a855f7" stopOpacity={0.15} />
-                      <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                      <stop offset="5%"  stopColor="#3B82F6" stopOpacity={0.4} />
+                      <stop offset="50%" stopColor="#3B82F6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
                   <XAxis dataKey="label" tick={{ fill: '#94a3b8', fontSize: 11 }} axisLine={false} tickLine={false} />
                   <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={v => v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v} />
                   <Tooltip contentStyle={TT} formatter={(v, _n, p) => [`${v.toLocaleString('id-ID')} ton (${p.payload.trip} trip)`, 'Netto']} />
-                  <Area type="monotone" dataKey="netto" stroke="#a855f7" strokeWidth={2.5} fill="url(#blueGrad)"
-                    dot={{ fill: '#fff', stroke: '#a855f7', strokeWidth: 2, r: 3.5 }}
-                    activeDot={{ r: 6, fill: '#a855f7', stroke: '#fff', strokeWidth: 2 }}
+                  <Area type="monotone" dataKey="netto" stroke="#3B82F6" strokeWidth={2.5} fill="url(#blueGrad)"
+                    dot={{ fill: '#fff', stroke: '#3B82F6', strokeWidth: 2, r: 3.5 }}
+                    activeDot={{ r: 6, fill: '#3B82F6', stroke: '#fff', strokeWidth: 2 }}
                     animationDuration={1600} animationEasing="ease-out" />
                 </AreaChart>
               </ResponsiveContainer>
@@ -426,7 +423,7 @@ export default function Dashboard() {
                   <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={22}
                     animationDuration={1200} animationEasing="ease-out" animationBegin={150}>
                     {top5Data.map((_, i) => {
-                      const colors = ['#3b82f6','#10b981','#f97316','#a855f7','#ef4444']
+                      const colors = ['#3b82f6','#10b981','#f97316','#3B82F6','#ef4444']
                       return <Cell key={i} fill={colors[i % colors.length]} />
                     })}
                     <LabelList dataKey="value" position="right" style={{ fill: '#1e293b', fontSize: 11, fontWeight: 700 }} formatter={v => (v / 1000).toFixed(2).replace('.',',') + 't'} />

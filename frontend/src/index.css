@@ -10,20 +10,35 @@
 }
 
 @layer components {
-  /* CARD — putih dengan shadow lembut */
+  /* CARD — putih bersih, radius 16, shadow sangat halus (enterprise) */
   .card {
-    @apply bg-white border border-gray-100 rounded-xl p-5 shadow-sm;
+    @apply bg-white rounded-2xl p-5;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06);
   }
   .card-dark {
-    @apply bg-wins-card border border-wins-border rounded-xl p-5;
+    @apply bg-wins-card border border-wins-border rounded-2xl p-5;
+  }
+  /* KPI card executive — aksen status di garis kiri */
+  .kpi { @apply card; }
+
+  /* OWNER DECISION INSIGHT — panel gradient navy khas */
+  .owner-insight {
+    @apply rounded-2xl p-5 text-white;
+    background: linear-gradient(135deg, #0F172A 0%, #1E40AF 100%);
+    box-shadow: 0 10px 30px -10px rgba(30, 64, 175, .45);
   }
 
-  /* BUTTONS — gradient violet sebagai primary, konsisten dengan dashboard */
+  /* BUTTONS — primary navy (enterprise), aksen flame terpisah */
   .btn-primary {
-    @apply text-white px-4 py-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md;
-    background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+    @apply text-white px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed;
+    background: #0F172A;
   }
-  .btn-primary:hover { background: linear-gradient(135deg, #9333ea 0%, #6b21a8 100%); }
+  .btn-primary:hover { background: #1E293B; }
+  .btn-flame {
+    @apply text-white px-4 py-2 rounded-lg font-semibold transition-all disabled:opacity-50;
+    background: linear-gradient(135deg, #fb923c 0%, #f59e0b 100%);
+  }
   .btn-secondary {
     @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 px-4 py-2 rounded-lg font-medium transition-colors shadow-sm;
   }
@@ -38,7 +53,7 @@
 
   /* INPUTS — putih dengan border subtle */
   .input {
-    @apply bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full transition-shadow;
+    @apply bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full transition-shadow;
   }
   .input:hover { @apply border-gray-300; }
   .label {
