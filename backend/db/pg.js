@@ -240,6 +240,20 @@ async function initDB() {
       UNIQUE(tanggal, sumber, produk, periode)
     );
   `);
+  // Density produk (kg per liter) — untuk konversi MT/Kg/Liter
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS produk_density (
+      produk TEXT PRIMARY KEY,
+      density REAL NOT NULL DEFAULT 0.9,
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+  {
+    const def = { CPO: 0.9000, RBDPO: 0.9000, RBDPL: 0.9000, Olein: 0.9000, RBDPS: 0.8900, Stearin: 0.8900, PFAD: 0.8800, 'B-40': 0.8600, BE: 0.8600 };
+    for (const [p, d] of Object.entries(def)) {
+      await pool.query(`INSERT INTO produk_density (produk, density) VALUES ($1,$2) ON CONFLICT (produk) DO NOTHING`, [p, d]);
+    }
+  }
   // Kurs harian (mata uang -> IDR)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kurs (

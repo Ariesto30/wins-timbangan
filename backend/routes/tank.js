@@ -61,7 +61,44 @@ router.get('/', async (req, res) => {
       kosong: tanks.filter(t => t.util_pct < 10).length,
     };
     summary.util_pct = summary.total_kapasitas > 0 ? +(summary.total_stok / summary.total_kapasitas * 100).toFixed(1) : 0;
-    res.json({ summary, tanks });
+
+    // Akumulasi per produk: MT / Kg / Liter (Liter = Kg ÷ density)
+    const densRows = await db.all(`SELECT produk, density FROM produk_density`);
+    const densMap = {}; densRows.forEach(d => densMap[d.produk] = Number(d.density));
+    const akum = {};
+    tanks.forEach(t => {
+      const p = t.produk || 'Lainnya';
+      akum[p] = (akum[p] || 0) + (t.stok || 0);
+    });
+    const akumulasi = Object.entries(akum).map(([produk, mt]) => {
+      const density = densMap[produk] || 0.9;
+      const kg = mt * 1000;
+      return { produk, density, total_mt: +mt.toFixed(3), total_kg: Math.round(kg), total_liter: Math.round(kg / density) };
+    }).sort((a, b) => b.total_mt - a.total_mt);
+    const grand = {
+      total_mt: +akumulasi.reduce((s, a) => s + a.total_mt, 0).toFixed(3),
+      total_kg: akumulasi.reduce((s, a) => s + a.total_kg, 0),
+      total_liter: akumulasi.reduce((s, a) => s + a.total_liter, 0),
+    };
+
+    res.json({ summary, tanks, akumulasi, grand });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// GET/PUT density produk (kg/liter) — bisa disesuaikan pabrik
+router.get('/density', async (req, res) => {
+  try { res.json(await db.all(`SELECT produk, density FROM produk_density ORDER BY produk`)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+router.put('/density', requireRole('admin', 'manajer'), async (req, res) => {
+  try {
+    const list = Array.isArray(req.body) ? req.body : (req.body.list || []);
+    for (const d of list) {
+      if (!d.produk || d.density == null) continue;
+      await db.run(`INSERT INTO produk_density (produk, density, updated_at) VALUES ($1,$2,NOW())
+        ON CONFLICT (produk) DO UPDATE SET density=EXCLUDED.density, updated_at=NOW()`, [d.produk, Number(d.density)]);
+    }
+    res.json({ message: 'Density tersimpan' });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

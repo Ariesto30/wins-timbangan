@@ -50,6 +50,8 @@ export default function TankInventory() {
         </div>
       </div>
 
+      {data.akumulasi?.length > 0 && <AkumulasiPanel akumulasi={data.akumulasi} grand={data.grand} onSavedDensity={load} />}
+
       {data.tanks.length === 0 ? (
         <div className="card text-center text-gray-400 py-12">Belum ada tangki. Klik "Tangki Baru" untuk menambah 14 tangki Anda.</div>
       ) : (
@@ -153,6 +155,87 @@ function IsoTank({ pct, produk }) {
       {/* Nozzle/manhole kecil di atas */}
       <rect x="55" y={TOP - 9} width="10" height="6" rx="1.5" fill="#cbd5e1" stroke="rgba(15,23,42,.2)" strokeWidth=".8" />
     </svg>
+  )
+}
+
+/* Akumulasi total per produk: MT / Kg / Liter (Liter = Kg ÷ density) */
+function AkumulasiPanel({ akumulasi, grand, onSavedDensity }) {
+  const [editD, setEditD] = useState(false)
+  const fmt0 = v => Number(v || 0).toLocaleString('id-ID', { maximumFractionDigits: 0 })
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <Droplets size={16} className="text-sky-600" />
+          <span className="font-bold text-slate-800 text-sm">Akumulasi Stok per Produk</span>
+          <span className="text-[11px] text-slate-400">— MT · Kg · Liter (konversi density)</span>
+        </div>
+        <button onClick={() => setEditD(true)} className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 underline decoration-dotted">Atur Density</button>
+      </div>
+      <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {akumulasi.map(a => {
+          const [c, cLight] = palette(a.produk)
+          return (
+            <div key={a.produk} className="rounded-xl ring-1 ring-slate-200 overflow-hidden">
+              <div className="h-1" style={{ background: `linear-gradient(90deg,${c},${cLight})` }} />
+              <div className="p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md text-white tracking-wide" style={{ background: c }}>{a.produk}</span>
+                  <span className="text-[10px] text-slate-400">ρ {a.density.toFixed(4)} kg/L</span>
+                </div>
+                <div className="space-y-1">
+                  <Row label="MT" value={`${fmt0(a.total_mt)} MT`} strong />
+                  <Row label="Kilogram" value={`${fmt0(a.total_kg)} Kg`} />
+                  <Row label="Liter" value={`${fmt0(a.total_liter)} L`} accent="#0ea5e9" />
+                </div>
+              </div>
+            </div>
+          )
+        })}
+        {/* Grand total */}
+        <div className="rounded-xl ring-1 ring-slate-300 bg-slate-50 p-3 flex flex-col justify-center">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Total Seluruh Tangki</div>
+          <Row label="MT" value={`${fmt0(grand.total_mt)} MT`} strong />
+          <Row label="Kilogram" value={`${fmt0(grand.total_kg)} Kg`} />
+          <Row label="Liter" value={`${fmt0(grand.total_liter)} L`} accent="#0ea5e9" />
+        </div>
+      </div>
+      {editD && <DensityEditor onClose={() => setEditD(false)} onSaved={() => { setEditD(false); onSavedDensity() }} />}
+    </div>
+  )
+}
+function Row({ label, value, strong, accent }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-slate-400">{label}</span>
+      <span className={`font-mono ${strong ? 'font-extrabold text-slate-800 text-sm' : 'font-semibold'}`} style={accent ? { color: accent } : {}}>{value}</span>
+    </div>
+  )
+}
+function DensityEditor({ onClose, onSaved }) {
+  const [list, setList] = useState(null)
+  const [saving, setSaving] = useState(false)
+  useEffect(() => { api.get('/tank/density').then(r => setList(r.data)) }, [])
+  async function save() {
+    setSaving(true)
+    try { await api.put('/tank/density', { list: list.map(d => ({ produk: d.produk, density: Number(d.density) })) }); onSaved() }
+    catch (e) { alert(e.response?.data?.error || 'Gagal') } finally { setSaving(false) }
+  }
+  return (
+    <Modal title="Atur Density Produk (kg/Liter)" onClose={onClose}>
+      <p className="text-xs text-gray-500 mb-3">Liter = Kg ÷ density. Sesuaikan dengan nilai aktual pabrik Anda (density berubah menurut suhu & jenis produk).</p>
+      {!list ? <div className="text-gray-400 text-sm py-4 text-center">Memuat...</div> : (
+        <div className="grid grid-cols-2 gap-2">
+          {list.map((d, i) => (
+            <div key={d.produk} className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-gray-600 w-20">{d.produk}</span>
+              <input type="number" step="0.0001" value={d.density} onChange={e => setList(l => l.map((x, j) => j === i ? { ...x, density: e.target.value } : x))} className="input flex-1" />
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="flex gap-2 mt-4"><button onClick={save} disabled={saving || !list} className="btn-primary flex items-center gap-2"><Save size={15} /> {saving ? '...' : 'Simpan'}</button></div>
+    </Modal>
   )
 }
 
