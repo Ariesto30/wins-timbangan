@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const db = require('../db/pg');
+const axios = require('axios');
 const { authenticate } = require('../middleware/auth');
 
 router.use(authenticate);
@@ -201,6 +202,59 @@ router.get('/center', async (req, res) => {
     };
 
     res.json({ operational, production, inventory, financial, strategic });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ═══════════ AI INSIGHT — TANK FARM (LLM + fallback rule-based) ═══════════ */
+
+// Bangun insight aturan (fallback / saat LLM tak tersedia)
+function ruleTankInsights(tanks, summary) {
+  const out = [];
+  const over = tanks.filter(t => t.util > 100);
+  const penuh = tanks.filter(t => t.util >= 90 && t.util <= 100);
+  const retensi = tanks.filter(t => t.stok > 0 && t.retensi != null && t.retensi > 45);
+  const kosong = tanks.filter(t => t.util > 0 && t.util < 12);
+  if (over.length) out.push({ level: 'tinggi', title: 'Risiko Over Capacity', text: `${over.length} tangki melebihi kapasitas (${over.map(t => t.nama + ' ' + t.util + '%').slice(0, 3).join(', ')}). Risiko luapan — segera keluarkan/dispatch.` });
+  if (penuh.length) out.push({ level: 'sedang', title: 'Hampir Penuh', text: `${penuh.length} tangki di 90–100% (${penuh.map(t => t.nama).slice(0, 3).join(', ')}). Jadwalkan pengiriman agar tidak overflow.` });
+  if (retensi.length) out.push({ level: 'sedang', title: 'Retensi Tinggi', text: `${retensi.length} tangki tersimpan >45 hari (${retensi.map(t => t.nama + ' ' + t.retensi + 'h').slice(0, 3).join(', ')}). Prioritaskan jual untuk jaga mutu.` });
+  if (kosong.length) out.push({ level: 'info', title: 'Kapasitas Tersedia', text: `${kosong.length} tangki utilisasi <12% — ruang untuk produksi/penerimaan berikutnya.` });
+  out.push({ level: 'info', title: 'Rekomendasi Distribusi', text: `Utilisasi tank farm ${summary.util_pct}%. ${summary.util_pct > 85 ? 'Tinggi — percepat dispatch produk jadi & tahan penerimaan CPO.' : 'Dalam batas aman.'}` });
+  return out;
+}
+
+router.get('/ai-tank', async (req, res) => {
+  try {
+    const tanks = await tankState();
+    const totalStok = tanks.reduce((s, t) => s + t.stok, 0);
+    const totalKap = tanks.reduce((s, t) => s + (Number(t.kapasitas_mt) || 0), 0);
+    const summary = { util_pct: totalKap > 0 ? +(totalStok / totalKap * 100).toFixed(1) : 0, total_stok: +totalStok.toFixed(1), penuh: tanks.filter(t => t.util >= 90).length };
+    const rule = ruleTankInsights(tanks, summary);
+
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) return res.json({ source: 'rule', items: rule, generated_at: new Date().toISOString(), note: 'Set ANTHROPIC_API_KEY untuk insight naratif AI.' });
+
+    // Susun konteks ringkas untuk LLM
+    const ctx = tanks.filter(t => t.kapasitas_mt > 0).map(t => ({ tangki: t.nama, produk: t.produk, util_pct: t.util, stok_mt: +t.stok.toFixed(1), kapasitas_mt: t.kapasitas_mt, retensi_hari: t.retensi }));
+    const prompt = `Anda analis operasional refinery kelapa sawit. Data tank farm hari ini (JSON):
+${JSON.stringify({ ringkasan: summary, tangki: ctx })}
+
+Berikan 4-5 insight keputusan untuk Owner dalam Bahasa Indonesia: risiko over-capacity, prediksi kebutuhan/ruang tangki, tren utilisasi, rekomendasi distribusi, early warning mutu (retensi). Ringkas, actionable, angka spesifik.
+Jawab HANYA JSON array valid: [{"level":"tinggi|sedang|info","title":"...","text":"..."}]. Tanpa teks lain.`;
+
+    try {
+      const r = await axios.post('https://api.anthropic.com/v1/messages', {
+        model: process.env.AI_MODEL || 'claude-3-5-haiku-latest',
+        max_tokens: 900,
+        messages: [{ role: 'user', content: prompt }],
+      }, { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, timeout: 20000 });
+      let txt = r.data?.content?.[0]?.text || '';
+      txt = txt.replace(/```json|```/g, '').trim();
+      const items = JSON.parse(txt);
+      if (Array.isArray(items) && items.length) return res.json({ source: 'llm', items, generated_at: new Date().toISOString() });
+      return res.json({ source: 'rule', items: rule, generated_at: new Date().toISOString() });
+    } catch (e) {
+      return res.json({ source: 'rule', items: rule, generated_at: new Date().toISOString(), note: 'LLM gagal (' + (e.response?.status || e.message) + '), pakai rule-based.' });
+    }
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 

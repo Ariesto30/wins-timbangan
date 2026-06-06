@@ -42,6 +42,11 @@ async function setStok(tankId, target, userId) {
 // GET semua tangki + stok terkini (closing terakhir) + utilisasi + retensi
 router.get('/', async (req, res) => {
   try {
+    // Auto-rekam snapshot stok harian (sekali per hari) agar tren utilisasi terisi bertahap
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const snapToday = await db.get(`SELECT 1 FROM tank_snapshot WHERE tanggal=$1 LIMIT 1`, [todayStr]).catch(() => null);
+    if (!snapToday) { try { await captureSnapshot(todayStr); } catch (_) { } }
+
     const tanks = await db.all(`SELECT * FROM tank WHERE aktif = 1 ORDER BY no_urut NULLS LAST, kode, nama`);
     const today = new Date();
     // Stok terkini = closing dari movement terbaru per tangki
@@ -216,6 +221,33 @@ router.get('/forecast', async (req, res) => {
       out.push({ no_urut: t.no_urut, nama: t.nama, produk: t.produk, stok: +stok.toFixed(1), kapasitas: kap, util: +(stok / kap * 100).toFixed(1), rate: +rate.toFixed(1), arah, prediksi_hari: prediksi, n: snaps.length });
     }
     res.json({ forecast: out });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* GET /trend?days=7 — utilisasi total + per produk per hari (dari snapshot) */
+router.get('/trend', async (req, res) => {
+  try {
+    const days = Math.min(parseInt(req.query.days) || 7, 90);
+    const rows = await db.all(`
+      SELECT tanggal, produk, SUM(stok_mt) stok, SUM(kapasitas_mt) kap
+      FROM tank_snapshot WHERE tanggal >= CURRENT_DATE - $1::int
+      GROUP BY tanggal, produk ORDER BY tanggal`, [days]);
+    // peta: tanggal -> { total, perProduk }
+    const byDate = {};
+    for (const r of rows) {
+      const d = String(r.tanggal).slice(0, 10);
+      byDate[d] = byDate[d] || { tanggal: d, _totStok: 0, _totKap: 0 };
+      const util = r.kap > 0 ? +(r.stok / r.kap * 100).toFixed(1) : 0;
+      byDate[d][r.produk] = util;
+      byDate[d]._totStok += Number(r.stok); byDate[d]._totKap += Number(r.kap);
+    }
+    const series = Object.values(byDate).map(d => {
+      const total = d._totKap > 0 ? +(d._totStok / d._totKap * 100).toFixed(1) : 0;
+      const { _totStok, _totKap, ...rest } = d;
+      return { ...rest, Total: total };
+    });
+    const produk = [...new Set(rows.map(r => r.produk))];
+    res.json({ series, produk, hari: series.length });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
