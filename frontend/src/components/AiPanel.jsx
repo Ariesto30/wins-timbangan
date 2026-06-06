@@ -37,6 +37,70 @@ export default function AiPanel({ endpoint, title = 'AI Insight', subtitle }) {
   )
 }
 
+/* ─── Panel Insight Audit yang mengikuti tab aktif ─── */
+const AUDIT_MAP = {
+  score: ['/audit/anomaly-score', 'Anomaly Score'],
+  fraudidx: ['/audit/fraud-index', 'Fraud Index'],
+  capacity: ['/audit/capacity', 'Vehicle Capacity'],
+  truck: ['/audit/truck-fingerprint', 'Truck Fingerprint'],
+  pattern: ['/audit/digit-forensic', 'Digit Forensic'],
+  scorecard: ['/audit/scorecards', 'Scorecards'],
+  duplicate: ['/audit/duplicates', 'Duplicate Detection'],
+  time: ['/audit/time-geo', 'Time & Geo'],
+  distrib: ['/audit/distribution', 'Distribution'],
+  recon: ['/audit/reconciliation', 'Reconciliation'],
+}
+const NO_FILTER = new Set(['truck', 'recon'])
+function trimData(d) {
+  if (Array.isArray(d)) return d.slice(0, 8).map(trimData)
+  if (d && typeof d === 'object') { const o = {}; for (const k in d) o[k] = trimData(d[k]); return o }
+  return d
+}
+
+export function AuditInsightPanel({ tab, tahun, bulanStart, bulanEnd }) {
+  const [ai, setAi] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const map = AUDIT_MAP[tab]
+  async function load(force) {
+    setLoading(true); setAi(null)
+    try {
+      if (!map) { const r = await api.get('/insight/ai-audit'); setAi(r.data); return }
+      const params = NO_FILTER.has(tab) ? {} : { tahun, bulan_start: bulanStart, bulan_end: bulanEnd }
+      if (tab === 'distrib') params.dim = 'produk'
+      const dataRes = await api.get(map[0], { params })
+      const r = await api.post('/insight/ai-narrate' + (force ? '?force=1' : ''), { kind: tab, judul: map[1], data: trimData(dataRes.data) })
+      setAi(r.data)
+    } catch (e) { setAi({ items: [{ level: 'info', title: 'Insight', text: 'Gagal memuat narasi untuk tab ini.' }] }) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { if (tab === 'settings' || tab === 'advanced') { setAi(null); return } load(false) }, [tab, tahun, bulanStart, bulanEnd])
+  if (tab === 'settings' || tab === 'advanced') return null
+  const title = 'Audit Insight' + (map ? ' — ' + map[1] : '')
+  return (
+    <div className="rounded-2xl p-5 text-white" style={{ background: 'linear-gradient(135deg,#0F172A,#312E81)', boxShadow: '0 10px 30px -10px rgba(49,46,129,.5)' }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2"><Sparkles size={16} className="text-amber-300" /><div><div className="font-bold tracking-tight leading-tight">{title}</div><div className="text-[10px] text-slate-400">Narasi forensik tab aktif · indikator, bukan tuduhan</div></div></div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{ai?.source === 'llm' ? 'naratif' : 'ringkasan cepat'}</span>
+          <button onClick={() => load(true)} className="text-slate-300 hover:text-white"><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /></button>
+        </div>
+      </div>
+      {loading ? <div className="text-xs text-slate-400 py-6 text-center">Menganalisa temuan {map ? map[1] : ''}…</div>
+        : !ai ? <div className="text-xs text-slate-400 py-6 text-center">—</div> : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {ai.items.map((it, i) => (
+              <div key={i} className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+                <div className="flex items-center gap-2 mb-0.5"><span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: LVL[it.level] || '#60a5fa' }} /><span className="text-xs font-bold text-slate-100">{it.title}</span></div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">{it.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      {ai?.note && <p className="text-[10px] text-slate-500 pt-2">{ai.note}</p>}
+    </div>
+  )
+}
+
 /* Box Tanya WINS — Q&A bebas lintas modul. */
 export function AiAsk() {
   const [q, setQ] = useState('')

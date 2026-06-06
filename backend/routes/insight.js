@@ -408,6 +408,25 @@ Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"...
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ═══════════ AI: NARASI GENERIK dari data tab (Haiku) ═══════════ */
+router.post('/ai-narrate', async (req, res) => {
+  try {
+    const { kind, judul, data } = req.body || {};
+    if (!kind || !data) return res.status(400).json({ error: 'kind & data wajib' });
+    const rule = [{ level: 'info', title: judul || 'Ringkasan', text: 'Tinjau data pada tab ini. Aktifkan insight naratif untuk ringkasan otomatis temuan.' }];
+    const result = await ai.getInsight({
+      kind: 'narrate-' + String(kind).slice(0, 30), model: ai.MODEL.HAIKU, ruleItems: rule,
+      force: req.query.force === '1', maxTokens: 1500,
+      buildPrompt: () => `Anda auditor forensik data timbangan refinery kelapa sawit. Berikut hasil analisis "${judul}" (JSON):
+${JSON.stringify(data).slice(0, 8000)}
+
+Beri 3-4 narasi forensik untuk Owner: temuan utama, indikator (INI INDIKATOR STATISTIK, BUKAN TUDUHAN), prioritas penyelidikan, langkah verifikasi. Bahasa Indonesia, ringkas, sebut angka spesifik dari data.
+Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
+    });
+    res.json(result);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 /* ═══════════ AI: REVIEW STRATEGIS BULANAN (Opus, cache bulanan) ═══════════ */
 router.get('/ai-strategic', async (req, res) => {
   try {
