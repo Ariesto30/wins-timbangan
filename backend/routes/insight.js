@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const db = require('../db/pg');
-const axios = require('axios');
 const { authenticate } = require('../middleware/auth');
+const ai = require('../ai/orchestrator');
 
 router.use(authenticate);
 
@@ -229,33 +229,27 @@ router.get('/ai-tank', async (req, res) => {
     const totalKap = tanks.reduce((s, t) => s + (Number(t.kapasitas_mt) || 0), 0);
     const summary = { util_pct: totalKap > 0 ? +(totalStok / totalKap * 100).toFixed(1) : 0, total_stok: +totalStok.toFixed(1), penuh: tanks.filter(t => t.util >= 90).length };
     const rule = ruleTankInsights(tanks, summary);
-
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) return res.json({ source: 'rule', items: rule, generated_at: new Date().toISOString(), note: 'Set ANTHROPIC_API_KEY untuk insight naratif AI.' });
-
-    // Susun konteks ringkas untuk LLM
     const ctx = tanks.filter(t => t.kapasitas_mt > 0).map(t => ({ tangki: t.nama, produk: t.produk, util_pct: t.util, stok_mt: +t.stok.toFixed(1), kapasitas_mt: t.kapasitas_mt, retensi_hari: t.retensi }));
-    const prompt = `Anda analis operasional refinery kelapa sawit. Data tank farm hari ini (JSON):
+
+    const result = await ai.getInsight({
+      kind: 'tank',
+      model: ai.MODEL.HAIKU,           // router: tank = Haiku (hemat)
+      ruleItems: rule,
+      force: req.query.force === '1',
+      buildPrompt: () => `Anda analis operasional refinery kelapa sawit. Data tank farm hari ini (JSON):
 ${JSON.stringify({ ringkasan: summary, tangki: ctx })}
 
 Berikan 4-5 insight keputusan untuk Owner dalam Bahasa Indonesia: risiko over-capacity, prediksi kebutuhan/ruang tangki, tren utilisasi, rekomendasi distribusi, early warning mutu (retensi). Ringkas, actionable, angka spesifik.
-Jawab HANYA JSON array valid: [{"level":"tinggi|sedang|info","title":"...","text":"..."}]. Tanpa teks lain.`;
-
-    try {
-      const r = await axios.post('https://api.anthropic.com/v1/messages', {
-        model: process.env.AI_MODEL || 'claude-3-5-haiku-latest',
-        max_tokens: 900,
-        messages: [{ role: 'user', content: prompt }],
-      }, { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, timeout: 20000 });
-      let txt = r.data?.content?.[0]?.text || '';
-      txt = txt.replace(/```json|```/g, '').trim();
-      const items = JSON.parse(txt);
-      if (Array.isArray(items) && items.length) return res.json({ source: 'llm', items, generated_at: new Date().toISOString() });
-      return res.json({ source: 'rule', items: rule, generated_at: new Date().toISOString() });
-    } catch (e) {
-      return res.json({ source: 'rule', items: rule, generated_at: new Date().toISOString(), note: 'LLM gagal (' + (e.response?.status || e.message) + '), pakai rule-based.' });
-    }
+Jawab HANYA JSON array valid: [{"level":"tinggi|sedang|info","title":"...","text":"..."}]. Tanpa teks lain.`,
+    });
+    res.json(result);
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* GET /ai-usage — transparansi pemakaian & budget AI bulan ini */
+router.get('/ai-usage', async (req, res) => {
+  try { res.json(await ai.usageSummary()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 module.exports = router;

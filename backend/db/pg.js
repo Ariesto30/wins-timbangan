@@ -254,6 +254,29 @@ async function initDB() {
       await pool.query(`INSERT INTO produk_density (produk, density) VALUES ($1,$2) ON CONFLICT (produk) DO NOTHING`, [p, d]);
     }
   }
+  // AI cache harian (1 hit LLM/hari/jenis) + log pemakaian (budget guard)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_cache (
+      kind TEXT NOT NULL,
+      tanggal DATE NOT NULL,
+      payload JSONB NOT NULL,
+      source TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (kind, tanggal)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ai_usage (
+      id SERIAL PRIMARY KEY,
+      tanggal DATE NOT NULL,
+      kind TEXT,
+      model TEXT,
+      in_tok INTEGER DEFAULT 0,
+      out_tok INTEGER DEFAULT 0,
+      cost_usd REAL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
   // Kurs harian (mata uang -> IDR)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS kurs (
