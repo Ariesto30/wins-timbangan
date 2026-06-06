@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { TrendingUp, TrendingDown, RefreshCw, Globe, Wallet, Minus, Download, Plus, X, Save, Trash2, History, Brain, DollarSign } from 'lucide-react'
 import api from '../utils/api'
+import AiPanel from '../components/AiPanel'
 
 const PRODUK = ['CPO', 'RBDPO', 'Olein', 'Stearin', 'PFAD']
 const SUMBER = ['PORAM', 'KPBN/Dumai', 'FCPO', 'MPOB', 'Manual']
@@ -89,6 +90,8 @@ export default function HargaPasar() {
         </div>
       </div>
       {msg && <div className={`text-sm px-3 py-2 rounded-lg ${msg.startsWith('✓') ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{msg}</div>}
+
+      <AiPanel endpoint="/insight/ai-market" title="AI Market Intelligence" subtitle="Tren harga × stok · pengaruh kurs · timing jual/tahan" />
 
       {/* Kurs panel */}
       {kurs && (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Wallet, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle, Scale } from 'lucide-react'
 import api from '../utils/api'
+import AiPanel from '../components/AiPanel'
 
 const fmtRp = v => 'Rp ' + Number(v || 0).toLocaleString('id-ID')
 const fmtM = v => (Number(v || 0) / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' M'
@@ -66,6 +67,8 @@ export default function PaymentAging() {
           <div className="text-[11px] text-slate-500 mt-0.5">{net.posisi_bersih >= 0 ? 'Surplus — piutang melebihi hutang' : 'Defisit — hutang melebihi piutang, siapkan kas'}</div>
         </div>
       </div>
+
+      <AiPanel endpoint="/insight/ai-payment" title="AI Cashflow Insight" subtitle="Risiko likuiditas · overdue · prediksi keterlambatan" />
 
       {/* Tab Piutang / Hutang */}
       <div className="flex gap-2">

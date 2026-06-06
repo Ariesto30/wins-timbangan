@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts'
 import { Brain, Factory, Package, Wallet, Target, Gauge } from 'lucide-react'
 import api from '../utils/api'
+import AiPanel, { AiAsk } from '../components/AiPanel'
 
 const fmt = v => Number(v || 0).toLocaleString('id-ID', { maximumFractionDigits: 1 })
 const tt = { backgroundColor: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 12 }
@@ -32,6 +33,9 @@ export default function InsightCenter() {
           <p className="page-subtitle">Otak analitik — Operational · Production · Inventory · Financial · Strategic</p>
         </div>
       </div>
+
+      <AiPanel endpoint="/insight/ai-owner" title="Owner Decision Insight" subtitle="Sintesis lintas-modul: stok · harga · produksi · keuangan" />
+      <AiAsk />
 
       <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => {
