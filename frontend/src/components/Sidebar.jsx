@@ -39,22 +39,21 @@ export default function Sidebar({ pinned = false, onTogglePin, onSetMini, onNavi
 
   return (
     <aside className="w-60 h-full bg-wins-card border-r border-wins-border flex flex-col flex-shrink-0">
-      {/* Header — title singkat, warna senada sidebar */}
-      <div className="px-4 py-5 border-b border-wins-border flex items-start justify-between">
-        <div>
-          <div className="text-sm font-extrabold text-white tracking-wider">WINS TIMBANGAN</div>
-          <div className="text-[10px] font-semibold tracking-widest text-orange-400">PT. WIJAYA INTI NUSANTARA SAWIT</div>
+      {/* Header — logo perusahaan di panel putih */}
+      <div className="px-3 py-3 border-b border-wins-border flex items-center justify-between gap-2">
+        <div className="flex-1 bg-white rounded-xl px-3 py-2 flex items-center justify-center shadow-sm">
+          <img src="/Logo Baru.png" alt="PT. Wijaya Inti Nusantara Sawit" className="h-10 w-auto object-contain" />
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           {onSetMini && (
             <button onClick={onSetMini} title="Ciutkan ke mini-rail (ikon saja)"
-              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-wins-border transition-colors">
+              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-wins-hover transition-colors">
               <PanelLeftClose size={14} />
             </button>
           )}
           {onTogglePin && (
             <button onClick={onTogglePin} title={pinned ? 'Lepas pin (auto-hide)' : 'Pin sidebar (tetap terbuka)'}
-              className={`p-1.5 rounded-lg transition-colors ${pinned ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500 hover:text-white hover:bg-wins-border'}`}>
+              className={`p-1.5 rounded-lg transition-colors ${pinned ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500 hover:text-white hover:bg-wins-hover'}`}>
               {pinned ? <Pin size={14} /> : <PinOff size={14} />}
             </button>
           )}
@@ -76,7 +75,7 @@ export default function Sidebar({ pinned = false, onTogglePin, onSetMini, onNavi
                 `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                   isActive
                     ? 'text-white shadow-lg shadow-orange-500/20'
-                    : 'text-slate-400 hover:text-white hover:bg-wins-border'
+                    : 'text-slate-400 hover:text-white hover:bg-wins-hover'
                 }`
               }
               style={({ isActive }) => isActive ? { background: 'linear-gradient(135deg, #fb923c, #f59e0b)' } : {}}
@@ -133,7 +132,7 @@ export function MiniRail({ onExpand, onNavigate }) {
           const Icon = n.icon
           return (
             <NavLink key={n.to} to={n.to} end={n.to === '/'} onClick={onNavigate} title={n.label}
-              className={({ isActive }) => `group relative w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${isActive ? 'text-white shadow-lg shadow-orange-500/20' : 'text-slate-400 hover:text-white hover:bg-wins-border'}`}
+              className={({ isActive }) => `group relative w-10 h-10 rounded-xl flex items-center justify-center transition-all flex-shrink-0 ${isActive ? 'text-white shadow-lg shadow-orange-500/20' : 'text-slate-400 hover:text-white hover:bg-wins-hover'}`}
               style={({ isActive }) => isActive ? { background: 'linear-gradient(135deg,#fb923c,#f59e0b)' } : {}}>
               <Icon size={18} />
               {/* Tooltip */}
@@ -150,7 +149,7 @@ export function MiniRail({ onExpand, onNavigate }) {
       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center text-white font-bold text-xs flex-shrink-0 mb-2" title={user?.nama || user?.username}>
         {(user?.nama || user?.username || 'A')[0].toUpperCase()}
       </div>
-      <button onClick={() => { logout(); navigate('/login') }} title="Keluar" className="group relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-wins-border transition-colors flex-shrink-0">
+      <button onClick={() => { logout(); navigate('/login') }} title="Keluar" className="group relative w-9 h-9 rounded-xl flex items-center justify-center text-slate-400 hover:text-red-400 hover:bg-wins-hover transition-colors flex-shrink-0">
         <LogOut size={15} />
         <span className="pointer-events-none absolute left-11 px-2 py-1 rounded-md bg-slate-900 text-white text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-50">Keluar</span>
       </button>
