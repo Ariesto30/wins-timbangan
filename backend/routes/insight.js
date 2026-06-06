@@ -420,9 +420,16 @@ router.post('/ai-narrate', async (req, res) => {
       buildPrompt: () => `Anda auditor forensik data timbangan refinery kelapa sawit. Berikut hasil analisis "${judul}" (JSON):
 ${JSON.stringify(data).slice(0, 8000)}
 
-PENTING — SATUAN: Ini data TIMBANGAN, bukan keuangan. Angka netto/berat/avg/tonase bersatuan KILOGRAM (kg) atau ton — JANGAN beri awalan "Rp" atau "$" pada angka berat, dan jangan menyebut nilai uang/rupiah sama sekali kecuali field memang eksplisit tentang harga/uang. Persentase tetap %. Bila ragu satuan, sebut "kg" atau tanpa satuan.
+GLOSARIUM WAJIB (jangan salah tafsir):
+- "berat_masuk" & "berat_keluar" = dua pembacaan timbangan untuk SATU truk yang sama (saat truk masuk dan keluar jembatan timbang). Selisihnya = netto muatan. INI BUKAN "barang masuk vs barang keluar gudang". DILARANG menafsirkannya sebagai transaksi terbalik, input/output tertukar, atau pengiriman/pembayaran.
+- Arah komoditas ditentukan oleh PRODUK: CPO = bahan baku MASUK ke pabrik; Olein/RBDPL/Stearin/RBDPS/PFAD/RBDPO = produk jadi KELUAR (dijual). Satu relasi bisa punya produk masuk DAN keluar — itu NORMAL, bukan anomali.
+- "Duplikat" = no_seri_relasi atau kombinasi berat yang sama muncul lebih dari sekali → indikasi kemungkinan entri ganda; BUKAN indikasi pembayaran, pengiriman fiktif, atau penipuan.
 
-Beri 3-4 narasi forensik untuk Owner: temuan utama, indikator (INI INDIKATOR STATISTIK, BUKAN TUDUHAN), prioritas penyelidikan, langkah verifikasi. Bahasa Indonesia, ringkas, sebut angka spesifik dari data.
+SATUAN: angka netto/berat = KILOGRAM (kg)/ton. JANGAN beri awalan "Rp"/"$" pada angka berat. Persentase tetap %.
+
+ATURAN BAHASA (PENTING): Ini indikator statistik, BUKAN tuduhan. DILARANG berspekulasi tentang motif, "pembayaran barang belum dikirim", "transaksi terbalik", manipulasi, atau menuduh pihak tertentu. Cukup deskripsikan pola data secara netral + langkah verifikasi administratif.
+
+Beri 3-4 narasi forensik untuk Owner: temuan/pola, kemungkinan penyebab yang WAJAR (mis. entri ganda, salah ketik, belum diinput), prioritas, langkah verifikasi. Bahasa Indonesia, ringkas, sebut angka spesifik.
 Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
     });
     res.json(result);
