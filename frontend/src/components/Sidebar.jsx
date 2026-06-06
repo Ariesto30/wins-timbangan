@@ -3,25 +3,29 @@ import { LayoutDashboard, Scale, FileText, BarChart2, Truck, FileSpreadsheet, Us
 import { getUser, logout, hasRole } from '../utils/auth'
 
 const nav = [
-  { section: 'Eksekutif' },
-  { to: '/briefing',   icon: Sunrise,         label: 'Daily Briefing',   roles: ['admin','manajer'] },
+  { section: 'Dashboard' },
+  { to: '/',           icon: LayoutDashboard, label: 'Dashboard Utama',  roles: ['admin','operator','manajer'] },
   { to: '/insight',    icon: Brain,           label: 'Insight Center',   roles: ['admin','manajer'] },
-  { section: 'Operasional' },
-  { to: '/',           icon: LayoutDashboard, label: 'Dashboard',        roles: ['admin','operator','manajer'] },
+  { to: '/briefing',   icon: Sunrise,         label: 'Daily Briefing',   roles: ['admin','manajer'] },
+  { section: 'Tank Farm' },
+  { to: '/tank',       icon: Database,        label: 'Tank Inventory',   roles: ['admin','manajer'] },
+  { to: '/quality',    icon: FlaskConical,    label: 'Quality Log',      roles: ['admin','manajer'] },
+  { section: 'Refinery' },
+  { to: '/produksi',   icon: Gauge,           label: 'Produksi Refinery',roles: ['admin','manajer'] },
+  { to: '/refinery',   icon: Factory,         label: 'Refinery Balance', roles: ['admin','manajer'] },
+  { section: 'Timbangan' },
   { to: '/input',      icon: Scale,           label: 'Input Timbangan',  roles: ['admin','operator','manajer'] },
   { to: '/bulk-input', icon: ClipboardPaste,  label: 'Input Massal',     roles: ['admin','operator','manajer'] },
   { to: '/data',       icon: FileSpreadsheet, label: 'Data Timbangan',   roles: ['admin','operator','manajer'] },
+  { section: 'Kontrak' },
   { to: '/kontrak',    icon: FileText,        label: 'Kontrak',          roles: ['admin','manajer'] },
-  { section: 'Produksi & Stok' },
-  { to: '/produksi',   icon: Gauge,           label: 'Produksi Refinery',roles: ['admin','manajer'] },
-  { to: '/refinery',   icon: Factory,         label: 'Refinery Balance', roles: ['admin','manajer'] },
-  { to: '/tank',       icon: Database,        label: 'Tank Inventory',   roles: ['admin','manajer'] },
-  { to: '/quality',    icon: FlaskConical,    label: 'Quality Log',      roles: ['admin','manajer'] },
-  { section: 'Analisa & Keuangan' },
+  { section: 'Analisa' },
   { to: '/laporan',    icon: BarChart2,       label: 'Laporan & Analisa',roles: ['admin','manajer'] },
   { to: '/armada',     icon: Truck,           label: 'Efisiensi Armada', roles: ['admin','manajer'] },
-  { to: '/payment',    icon: Wallet,          label: 'Payment & Aging',  roles: ['admin','manajer'] },
   { to: '/harga',      icon: TrendingUp,      label: 'Harga Pasar',      roles: ['admin','manajer'] },
+  { section: 'Keuangan' },
+  { to: '/payment',    icon: Wallet,          label: 'Payment & Aging',  roles: ['admin','manajer'] },
+  { section: 'Audit' },
   { to: '/audit',      icon: Shield,          label: 'Audit Forensik',   roles: ['admin','manajer'] },
   { section: 'Sistem' },
   { to: '/import',     icon: Upload,          label: 'Import Data',      roles: ['admin','manajer'] },
@@ -38,7 +42,7 @@ export default function Sidebar({ onClose, onNavigate }) {
   }
 
   return (
-    <aside className="w-60 h-full bg-wins-card border-r border-wins-border flex flex-col flex-shrink-0">
+    <aside className="w-60 h-full border-r border-wins-border flex flex-col flex-shrink-0" style={{ background: 'linear-gradient(180deg,#07152A 0%,#0F172A 100%)' }}>
       {/* Header — logo perusahaan di panel putih */}
       <div className="px-3 py-3 border-b border-wins-border flex items-center justify-between gap-2">
         <div className="flex-1 bg-white rounded-xl px-3 py-2 flex items-center justify-center shadow-sm">
@@ -57,7 +61,7 @@ export default function Sidebar({ onClose, onNavigate }) {
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {nav.map((n, i) => {
-          if (n.section) return <div key={`s${i}`} className="px-3 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">{n.section}</div>
+          if (n.section) return <div key={`s${i}`} className={`px-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500 ${i === 0 ? 'pt-1' : 'pt-3 mt-2 border-t border-white/5'}`}>{n.section}</div>
           if (!hasRole(...n.roles)) return null
           return (
             <NavLink
