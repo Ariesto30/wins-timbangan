@@ -7,7 +7,6 @@ import {
 import { TrendingUp, TrendingDown, RefreshCw, Filter, BarChart2, Box, Zap, RotateCcw } from 'lucide-react'
 import api, { fmt } from '../utils/api'
 import MonthRange from '../components/MonthRange'
-import OwnerInsight from '../components/OwnerInsight'
 
 const BLUE = '#1565C0'
 const BLUE_LIGHT = '#2196F3'
@@ -291,9 +290,6 @@ export default function Dashboard() {
         </div>
 
         <div className="p-4 space-y-3">
-
-          {/* OWNER DECISION INSIGHT — panel eksekutif gradient */}
-          <OwnerInsight />
 
           {/* 6 KPI CARDS — executive netral (3 warna brand) */}
           <div className="grid grid-cols-6 gap-3">

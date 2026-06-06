@@ -97,6 +97,14 @@ function Layout({ children }) {
         </div>
       )}
 
+      {/* Tombol buka & sematkan sidebar (desktop, mode auto) */}
+      {!isMobile && mode === 'auto' && (
+        <button onClick={() => applyMode('full')} title="Buka & sematkan sidebar"
+          className={`fixed top-3 left-3 z-40 p-2 rounded-xl bg-white shadow-md ring-1 ring-gray-200 text-gray-700 hover:text-orange-600 transition-opacity ${revealed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+          <Menu size={20} />
+        </button>
+      )}
+
       {/* Mini-rail (mode mini, desktop) — selalu terlihat, push konten */}
       {!isMobile && mode === 'mini' && (
         <div className="fixed left-0 top-0 h-screen z-30"
