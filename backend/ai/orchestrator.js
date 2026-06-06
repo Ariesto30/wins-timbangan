@@ -9,14 +9,14 @@ const axios = require('axios');
 
 // Tarif per 1 juta token (USD) — sesuaikan bila harga Anthropic berubah
 const PRICING = {
-  'claude-3-5-haiku-latest': { in: 0.80, out: 4 },
-  'claude-3-5-sonnet-latest': { in: 3, out: 15 },
-  'claude-3-opus-latest': { in: 15, out: 75 },
+  'claude-haiku-4-5': { in: 1, out: 5 },
+  'claude-sonnet-4-6': { in: 3, out: 15 },
+  'claude-opus-4-8': { in: 15, out: 75 },
 };
 const MODEL = {
-  HAIKU: 'claude-3-5-haiku-latest',
-  SONNET: 'claude-3-5-sonnet-latest',
-  OPUS: 'claude-3-opus-latest',
+  HAIKU: 'claude-haiku-4-5',
+  SONNET: 'claude-sonnet-4-6',
+  OPUS: 'claude-opus-4-8',
 };
 const budgetUsd = () => parseFloat(process.env.AI_BUDGET_USD || '5');
 const costOf = (model, inTok, outTok) => {
