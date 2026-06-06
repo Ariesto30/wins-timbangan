@@ -16,7 +16,7 @@ export default function ProduksiRefinery() {
   const [tab, setTab] = useState('yield')
   return (
     <div className="space-y-5">
-      <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(120deg,#0f172a,#1e293b 55%,#7c2d12)' }}>
+      <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(120deg,#0f172a,#1e293b 55%,#0c4a6e)' }}>
         <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '22px 22px' }} />
         <div className="relative flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl flex items-center justify-center ring-1 ring-white/20" style={{ background: 'linear-gradient(135deg,#fb923c,#ea580c)' }}>

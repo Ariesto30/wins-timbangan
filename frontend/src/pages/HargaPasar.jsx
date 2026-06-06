@@ -75,7 +75,7 @@ export default function HargaPasar() {
       {/* Header + actions */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#16a34a,#15803d)' }}><TrendingUp size={22} className="text-white" /></div>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0F172A,#1E293B)' }}><TrendingUp size={22} className="text-white" /></div>
           <div>
             <h1 className="page-title">Harga Pasar Komoditas</h1>
             <p className="page-subtitle">CPO · Olein · Stearin · PFAD · RBDPO — multi-sumber, Rupiah & USD</p>

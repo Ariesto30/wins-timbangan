@@ -36,7 +36,7 @@ export default function ImportData() {
   return (
     <div className="space-y-4 max-w-4xl">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0d9488,#0f766e)' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,#0F172A,#1E293B)' }}>
           <Upload size={22} className="text-white" />
         </div>
         <div>
