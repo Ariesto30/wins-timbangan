@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { Wallet, Plus, X, Save, Trash2 } from 'lucide-react'
+import { Wallet, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle, Scale } from 'lucide-react'
 import api from '../utils/api'
 
 const fmtRp = v => 'Rp ' + Number(v || 0).toLocaleString('id-ID')
+const fmtM = v => (Number(v || 0) / 1e9).toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' M'
 const BUCKETS = [
   { key: 'lancar', label: 'Belum Tempo', color: 'green' },
   { key: 'b30', label: '1–30 hari', color: 'yellow' },
@@ -15,7 +16,8 @@ const BUCKET_TXT = { green: 'text-green-600', yellow: 'text-yellow-600', amber: 
 export default function PaymentAging() {
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
-  const [payFor, setPayFor] = useState(null) // kontrak row for payment form
+  const [payFor, setPayFor] = useState(null)
+  const [tab, setTab] = useState('piutang')
 
   function load() {
     setErr(null)
@@ -28,11 +30,11 @@ export default function PaymentAging() {
       <div className="text-red-600 font-semibold mb-1">Gagal memuat data</div>
       <div className="text-xs text-gray-500 mb-4">{err}</div>
       <button onClick={load} className="btn-primary">Coba Lagi</button>
-      <p className="text-[11px] text-gray-400 mt-3">Jika baru deploy, tunggu 1-2 menit lalu coba lagi.</p>
     </div>
   )
   if (!data) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
-  const s = data.summary
+  const net = data.net || {}
+  const active = tab === 'piutang' ? data.piutang : data.hutang
 
   return (
     <div className="space-y-4">
@@ -41,42 +43,81 @@ export default function PaymentAging() {
           <Wallet size={22} className="text-white" />
         </div>
         <div>
-          <h1 className="page-title">Payment & Aging</h1>
-          <p className="page-subtitle">Pelunasan kontrak & umur piutang</p>
+          <h1 className="page-title">Arus Kas — Piutang & Hutang</h1>
+          <p className="page-subtitle">Penjualan produk (kas masuk) vs pembelian CPO (kas keluar)</p>
         </div>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiBox label="Nilai Kontrak" value={fmtRp(s.total_nilai)} />
-        <KpiBox label="Sudah Dibayar" value={fmtRp(s.total_bayar)} color="green" />
-        <KpiBox label="Outstanding" value={fmtRp(s.total_outstanding)} color={s.total_outstanding > 0 ? 'red' : 'green'} />
-        <KpiBox label="Kontrak Lunas" value={`${s.lunas} / ${s.total_kontrak}`} />
+      {/* Posisi Kas — ringkasan netto */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <div className="rounded-2xl p-4 ring-1 ring-emerald-200 bg-gradient-to-br from-emerald-50 to-white">
+          <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 mb-1"><ArrowDownCircle size={15} /> PIUTANG — Kas Akan Masuk</div>
+          <div className="text-2xl font-extrabold text-emerald-700">{fmtRp(net.piutang_outstanding)}</div>
+          <div className="text-[11px] text-emerald-600/80 mt-0.5">Penjualan Olein·Stearin·PFAD·RBDPO · jatuh tempo lewat: {fmtRp(net.piutang_overdue)}</div>
+        </div>
+        <div className="rounded-2xl p-4 ring-1 ring-red-200 bg-gradient-to-br from-red-50 to-white">
+          <div className="flex items-center gap-2 text-xs font-semibold text-red-700 mb-1"><ArrowUpCircle size={15} /> HUTANG — Kas Akan Keluar</div>
+          <div className="text-2xl font-extrabold text-red-600">{fmtRp(net.hutang_outstanding)}</div>
+          <div className="text-[11px] text-red-600/80 mt-0.5">Pembelian CPO · jatuh tempo lewat: {fmtRp(net.hutang_overdue)}</div>
+        </div>
+        <div className={`rounded-2xl p-4 ring-1 ${net.posisi_bersih >= 0 ? 'ring-sky-200 bg-gradient-to-br from-sky-50 to-white' : 'ring-amber-200 bg-gradient-to-br from-amber-50 to-white'}`}>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-600 mb-1"><Scale size={15} /> POSISI BERSIH</div>
+          <div className={`text-2xl font-extrabold ${net.posisi_bersih >= 0 ? 'text-sky-700' : 'text-amber-600'}`}>{net.posisi_bersih >= 0 ? '+' : ''}{fmtRp(net.posisi_bersih)}</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">{net.posisi_bersih >= 0 ? 'Surplus — piutang melebihi hutang' : 'Defisit — hutang melebihi piutang, siapkan kas'}</div>
+        </div>
       </div>
 
-      {/* Aging buckets */}
+      {/* Tab Piutang / Hutang */}
+      <div className="flex gap-2">
+        <button onClick={() => setTab('piutang')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'piutang' ? 'bg-emerald-600 text-white shadow' : 'bg-white ring-1 ring-slate-200 text-slate-500'}`}>
+          <ArrowDownCircle size={15} /> Piutang — Penjualan ({data.piutang.summary.total_kontrak})
+        </button>
+        <button onClick={() => setTab('hutang')} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'hutang' ? 'bg-red-600 text-white shadow' : 'bg-white ring-1 ring-slate-200 text-slate-500'}`}>
+          <ArrowUpCircle size={15} /> Hutang — Pembelian CPO ({data.hutang.summary.total_kontrak})
+        </button>
+      </div>
+
+      <AgingSection data={active} tone={tab} onPay={setPayFor} />
+
+      {payFor && <PaymentForm kontrak={payFor} onClose={() => setPayFor(null)} onSaved={() => { setPayFor(null); load() }} />}
+    </div>
+  )
+}
+
+/* Satu sisi aging (piutang atau hutang): KPI + bucket + tabel */
+function AgingSection({ data, tone, onPay }) {
+  const s = data.summary
+  const isPiutang = tone === 'piutang'
+  const sisaLabel = isPiutang ? 'Sisa Tertagih' : 'Sisa Terhutang'
+  const payLabel = isPiutang ? '+ Terima' : '+ Bayar'
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <KpiBox label="Nilai Kontrak" value={fmtRp(s.total_nilai)} />
+        <KpiBox label={isPiutang ? 'Sudah Diterima' : 'Sudah Dibayar'} value={fmtRp(s.total_bayar)} color="green" />
+        <KpiBox label="Outstanding" value={fmtRp(s.total_outstanding)} color={s.total_outstanding > 0 ? (isPiutang ? 'emerald' : 'red') : 'green'} />
+        <KpiBox label="Lunas" value={`${s.lunas} / ${s.total_kontrak}`} />
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {BUCKETS.map(b => (
           <div key={b.key} className="card">
             <div className="text-xs text-gray-500">{b.label}</div>
-            <div className={`text-lg font-bold mt-1 ${BUCKET_TXT[b.color]}`}>{fmtRp(s.buckets[b.key])}</div>
+            <div className={`text-base font-bold mt-1 ${BUCKET_TXT[b.color]}`}>{fmtRp(s.buckets[b.key])}</div>
           </div>
         ))}
       </div>
-
-      {/* Outstanding table */}
       <div className="card p-0 overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-sm font-bold text-gray-800">Piutang Belum Lunas ({data.outstanding.length})</h3>
+          <h3 className="text-sm font-bold text-gray-800">{isPiutang ? 'Piutang' : 'Hutang'} Belum Lunas ({data.outstanding.length})</h3>
           <p className="text-xs text-gray-500 mt-0.5">Diurutkan dari paling lama menunggak</p>
         </div>
-        <div className="overflow-x-auto max-h-[500px]">
+        <div className="overflow-x-auto max-h-[480px]">
           <table className="w-full text-sm">
             <thead className="sticky top-0"><tr className="border-b border-gray-200 bg-gray-50">
-              {['No. Kontrak', 'Relasi', 'Produk', 'Nilai', 'Dibayar', 'Sisa', '% Bayar', 'Jatuh Tempo', 'Umur', ''].map(h => <th key={h} className="table-header">{h}</th>)}
+              {['No. Kontrak', 'Relasi', 'Produk', 'Nilai', isPiutang ? 'Diterima' : 'Dibayar', sisaLabel, '% Bayar', 'Jatuh Tempo', 'Umur', ''].map(h => <th key={h} className="table-header">{h}</th>)}
             </tr></thead>
             <tbody>
-              {data.outstanding.length === 0 && <tr><td colSpan={10} className="text-center text-green-600 py-8">✓ Semua kontrak lunas</td></tr>}
+              {data.outstanding.length === 0 && <tr><td colSpan={10} className="text-center text-green-600 py-8">✓ Semua lunas</td></tr>}
               {data.outstanding.map(r => (
                 <tr key={r.no_kontrak} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="table-cell font-mono text-xs">{r.no_kontrak}</td>
@@ -84,7 +125,7 @@ export default function PaymentAging() {
                   <td className="table-cell"><span className="badge-neutral">{r.produk}</span></td>
                   <td className="table-cell font-mono text-xs">{fmtRp(r.nilai_kontrak)}</td>
                   <td className="table-cell font-mono text-xs text-green-600">{fmtRp(r.dibayar)}</td>
-                  <td className="table-cell font-mono text-xs font-bold text-red-600">{fmtRp(r.sisa)}</td>
+                  <td className={`table-cell font-mono text-xs font-bold ${isPiutang ? 'text-emerald-600' : 'text-red-600'}`}>{fmtRp(r.sisa)}</td>
                   <td className="table-cell">
                     <div className="flex items-center gap-1">
                       <div className="w-12 h-1.5 bg-gray-100 rounded-full overflow-hidden"><div className="h-full bg-green-500" style={{ width: `${r.pct_bayar}%` }} /></div>
@@ -93,15 +134,13 @@ export default function PaymentAging() {
                   </td>
                   <td className="table-cell text-xs text-gray-500">{r.jatuh_tempo || '–'}</td>
                   <td className="table-cell">{r.umur_hari > 0 ? <span className={`font-bold ${r.umur_hari > 90 ? 'text-red-600' : r.umur_hari > 30 ? 'text-orange-500' : 'text-yellow-600'}`}>{r.umur_hari} hr</span> : <span className="text-gray-400 text-xs">belum</span>}</td>
-                  <td className="table-cell"><button onClick={() => setPayFor(r)} className="text-xs text-green-600 hover:text-green-800 font-medium">+ Bayar</button></td>
+                  <td className="table-cell"><button onClick={() => onPay(r)} className={`text-xs font-medium ${isPiutang ? 'text-emerald-600 hover:text-emerald-800' : 'text-red-600 hover:text-red-800'}`}>{payLabel}</button></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-
-      {payFor && <PaymentForm kontrak={payFor} onClose={() => setPayFor(null)} onSaved={() => { setPayFor(null); load() }} />}
     </div>
   )
 }
@@ -123,8 +162,8 @@ function PaymentForm({ kontrak, onClose, onSaved }) {
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
           <div>
-            <h3 className="font-bold text-gray-800">Pembayaran — {kontrak.no_kontrak}</h3>
-            <p className="text-xs text-gray-400">{kontrak.relasi_nama} · sisa {fmtRp(kontrak.sisa)}</p>
+            <h3 className="font-bold text-gray-800">{kontrak.tipe === 'piutang' ? 'Penerimaan' : 'Pembayaran'} — {kontrak.no_kontrak}</h3>
+            <p className="text-xs text-gray-400">{kontrak.relasi_nama} · {kontrak.tipe === 'piutang' ? 'sisa tertagih' : 'sisa terhutang'} {fmtRp(kontrak.sisa)}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><X size={18} /></button>
         </div>
@@ -156,6 +195,6 @@ function PaymentForm({ kontrak, onClose, onSaved }) {
 
 function Fld({ label, children }) { return <div><label className="text-xs text-gray-500 block mb-1">{label}</label>{children}</div> }
 function KpiBox({ label, value, color }) {
-  const txt = color === 'red' ? 'text-red-600' : color === 'green' ? 'text-green-600' : 'text-gray-800'
+  const txt = color === 'red' ? 'text-red-600' : color === 'green' ? 'text-green-600' : color === 'emerald' ? 'text-emerald-600' : 'text-gray-800'
   return <div className="card"><div className="text-xs text-gray-500">{label}</div><div className={`text-lg font-bold mt-1 ${txt}`}>{value}</div></div>
 }
