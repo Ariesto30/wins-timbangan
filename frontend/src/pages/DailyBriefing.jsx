@@ -8,8 +8,16 @@ const fmt = v => Number(v || 0).toLocaleString('id-ID', { maximumFractionDigits:
 export default function DailyBriefing() {
   const [d, setD] = useState(null)
   const [err, setErr] = useState(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [updatedAt, setUpdatedAt] = useState(null)
   const user = getUser()
-  function load() { setErr(null); api.get('/insight/briefing').then(r => setD(r.data)).catch(e => setErr(e.response?.data?.error || e.message)) }
+  function load() {
+    setErr(null); setRefreshing(true)
+    return api.get('/insight/briefing')
+      .then(r => { setD(r.data); setUpdatedAt(new Date()) })
+      .catch(e => setErr(e.response?.data?.error || e.message))
+      .finally(() => setRefreshing(false))
+  }
   useEffect(() => { load() }, [])
 
   if (err) return <div className="card bg-red-50 border-red-200 text-center py-10"><div className="text-red-600 font-semibold">Gagal memuat</div><div className="text-xs text-gray-500 mb-3">{err}</div><button onClick={load} className="btn-primary">Coba Lagi</button></div>
@@ -35,7 +43,12 @@ export default function DailyBriefing() {
               <p className="text-sm text-teal-50/90">{hari} · <span className="font-semibold">{fokus}</span></p>
             </div>
           </div>
-          <button onClick={load} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 ring-1 ring-white/20 text-white text-xs font-semibold"><RefreshCw size={13} /> Refresh</button>
+          <div className="flex items-center gap-2">
+            {updatedAt && <span className="text-[10px] text-teal-50/70">diperbarui {updatedAt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+            <button onClick={load} disabled={refreshing} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 ring-1 ring-white/20 text-white text-xs font-semibold disabled:opacity-60">
+              <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} /> {refreshing ? 'Memuat...' : 'Refresh'}
+            </button>
+          </div>
         </div>
       </div>
 
