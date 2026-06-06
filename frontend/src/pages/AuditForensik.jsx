@@ -36,7 +36,7 @@ export default function AuditForensik() {
         </div>
       </div>
 
-      <AiPanel endpoint="/insight/ai-audit" title="AI Audit Insight" subtitle="Narasi forensik · prioritas penyelidikan (indikator, bukan tuduhan)" />
+      <AiPanel endpoint="/insight/ai-audit" title="Audit Insight" subtitle="Narasi forensik · prioritas penyelidikan (indikator, bukan tuduhan)" />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">

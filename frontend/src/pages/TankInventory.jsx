@@ -139,9 +139,9 @@ function AiInsightPanel({ ai, onRefresh }) {
   return (
     <div className="rounded-2xl p-5 text-white h-full" style={{ background: 'linear-gradient(135deg,#0F172A,#312E81)', boxShadow: '0 10px 30px -10px rgba(49,46,129,.5)' }}>
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2"><Sparkles size={16} className="text-amber-300" /><span className="font-bold tracking-tight">AI Insight</span></div>
+        <div className="flex items-center gap-2"><Sparkles size={16} className="text-amber-300" /><span className="font-bold tracking-tight">Insight Tangki</span></div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{ai?.source === 'llm' ? 'AI naratif' : 'ringkasan cepat'}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{ai?.source === 'llm' ? 'naratif' : 'ringkasan cepat'}</span>
           {onRefresh && <button onClick={onRefresh} className="text-slate-300 hover:text-white"><RefreshCw size={13} /></button>}
         </div>
       </div>

@@ -68,7 +68,7 @@ export default function PaymentAging() {
         </div>
       </div>
 
-      <AiPanel endpoint="/insight/ai-payment" title="AI Cashflow Insight" subtitle="Risiko likuiditas · overdue · prediksi keterlambatan" />
+      <AiPanel endpoint="/insight/ai-payment" title="Cashflow Insight" subtitle="Risiko likuiditas · overdue · prediksi keterlambatan" />
 
       {/* Tab Piutang / Hutang */}
       <div className="flex gap-2">

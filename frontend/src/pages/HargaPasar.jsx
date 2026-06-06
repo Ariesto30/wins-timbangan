@@ -91,7 +91,7 @@ export default function HargaPasar() {
       </div>
       {msg && <div className={`text-sm px-3 py-2 rounded-lg ${msg.startsWith('✓') ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>{msg}</div>}
 
-      <AiPanel endpoint="/insight/ai-market" title="AI Market Intelligence" subtitle="Tren harga × stok · pengaruh kurs · timing jual/tahan" />
+      <AiPanel endpoint="/insight/ai-market" title="Market Intelligence" subtitle="Tren harga × stok · pengaruh kurs · timing jual/tahan" />
 
       {/* Kurs panel */}
       {kurs && (
