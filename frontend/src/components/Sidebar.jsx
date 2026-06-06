@@ -28,7 +28,7 @@ const nav = [
   { to: '/pengguna',   icon: Users,           label: 'Pengguna',         roles: ['admin'] },
 ]
 
-export default function Sidebar({ pinned = false, onTogglePin, onSetMini, onNavigate }) {
+export default function Sidebar({ onClose, onNavigate }) {
   const navigate = useNavigate()
   const user = getUser()
 
@@ -45,16 +45,10 @@ export default function Sidebar({ pinned = false, onTogglePin, onSetMini, onNavi
           <img src="/Logo Baru.png" alt="PT. Wijaya Inti Nusantara Sawit" className="h-10 w-auto object-contain" />
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
-          {onSetMini && (
-            <button onClick={onSetMini} title="Ciutkan ke mini-rail (ikon saja)"
-              className="p-1.5 rounded-lg text-slate-500 hover:text-white hover:bg-wins-hover transition-colors">
-              <PanelLeftClose size={14} />
-            </button>
-          )}
-          {onTogglePin && (
-            <button onClick={onTogglePin} title={pinned ? 'Lepas pin (auto-hide)' : 'Pin sidebar (tetap terbuka)'}
-              className={`p-1.5 rounded-lg transition-colors ${pinned ? 'bg-orange-500/20 text-orange-400' : 'text-slate-500 hover:text-white hover:bg-wins-hover'}`}>
-              {pinned ? <Pin size={14} /> : <PinOff size={14} />}
+          {onClose && (
+            <button onClick={onClose} title="Sembunyikan sidebar (Ctrl+B)"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-wins-hover transition-colors">
+              <PanelLeftClose size={16} />
             </button>
           )}
         </div>

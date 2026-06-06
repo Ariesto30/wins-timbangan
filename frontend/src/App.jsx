@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { Menu, X } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { isLoggedIn } from './utils/auth'
-import Sidebar, { MiniRail } from './components/Sidebar'
+import Sidebar from './components/Sidebar'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import InputTimbangan from './pages/InputTimbangan'
@@ -27,131 +27,52 @@ function PrivateRoute({ children }) {
   return isLoggedIn() ? children : <Navigate to="/login" replace />
 }
 
-const HIDE_DELAY = 2500   // ms sebelum auto-hide setelah cursor keluar
-const REVEAL_ZONE = 18    // px dari tepi kiri untuk trigger
-
-// Migrasi preferensi lama (pinned boolean) → mode
-function initMode() {
-  const m = localStorage.getItem('wins_sidebar_mode')
-  if (m === 'auto' || m === 'mini' || m === 'full') return m
-  if (localStorage.getItem('wins_sidebar_pinned') === '1') return 'full'
-  return 'auto'
-}
-
 function Layout({ children }) {
-  const [mode, setMode] = useState(initMode)        // 'auto' | 'mini' | 'full'
-  const [revealed, setRevealed] = useState(false)   // auto: hover-reveal
-  const [railHover, setRailHover] = useState(false) // mini: hover-expand
-  const [mobileOpen, setMobileOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 768px)').matches)
-  const hideTimer = useRef(null)
-
-  function applyMode(m) { setMode(m); localStorage.setItem('wins_sidebar_mode', m); setRevealed(false); setRailHover(false) }
+  // Sidebar tampil/sembunyi — dikontrol HANYA oleh tombol ☰. Default: tampil di desktop, sembunyi di HP.
+  const [open, setOpen] = useState(() => !window.matchMedia('(max-width: 768px)').matches)
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)')
-    const onChange = e => setIsMobile(e.matches)
+    const onChange = e => { setIsMobile(e.matches); setOpen(!e.matches) }
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
   }, [])
 
-  const clearHide = useCallback(() => { if (hideTimer.current) { clearTimeout(hideTimer.current); hideTimer.current = null } }, [])
-  const scheduleHide = useCallback(() => {
-    clearHide()
-    hideTimer.current = setTimeout(() => { setRevealed(false); setRailHover(false) }, HIDE_DELAY)
-  }, [clearHide])
-
-  // Trigger zone tepi kiri (hanya mode auto, desktop)
-  useEffect(() => {
-    if (isMobile || mode !== 'auto') return
-    const onMove = e => { if (e.clientX <= REVEAL_ZONE) { clearHide(); setRevealed(true) } }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    return () => window.removeEventListener('mousemove', onMove)
-  }, [isMobile, mode, clearHide])
-
-  // Ctrl/Cmd+B → toggle full/auto (desktop) · drawer (mobile) ; Esc tutup
+  // Ctrl/Cmd+B toggle · Esc tutup
   useEffect(() => {
     const onKey = e => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
-        e.preventDefault()
-        if (isMobile) setMobileOpen(o => !o)
-        else applyMode(mode === 'full' ? 'auto' : 'full')
-      }
-      if (e.key === 'Escape') { setMobileOpen(false); setRevealed(false); setRailHover(false) }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') { e.preventDefault(); setOpen(o => !o) }
+      if (e.key === 'Escape') setOpen(false)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [isMobile, mode])
+  }, [])
 
-  const fullVisible = !isMobile && (mode === 'full' || (mode === 'auto' && revealed) || (mode === 'mini' && railHover))
-  const overlayShadow = mode !== 'full' && fullVisible   // bayangan saat overlay (bukan saat push penuh)
-  const contentMl = isMobile ? 'ml-0' : mode === 'full' ? 'ml-60' : mode === 'mini' ? 'ml-[60px]' : 'ml-0'
+  const contentMl = !isMobile && open ? 'ml-60' : 'ml-0'
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Trigger rail (mode auto, desktop) */}
-      {!isMobile && mode === 'auto' && (
-        <div className="fixed left-0 top-0 h-screen z-40" style={{ width: REVEAL_ZONE }}
-          onMouseEnter={() => { clearHide(); setRevealed(true) }}>
-          <div className={`h-full w-1 bg-gradient-to-b from-orange-400/40 to-sky-500/40 transition-opacity ${revealed ? 'opacity-0' : 'opacity-100'}`} />
-        </div>
-      )}
-
-      {/* Tombol buka & sematkan sidebar (desktop, mode auto) */}
-      {!isMobile && mode === 'auto' && (
-        <button onClick={() => applyMode('full')} title="Buka & sematkan sidebar"
-          className={`fixed top-3 left-3 z-40 p-2 rounded-xl bg-white shadow-md ring-1 ring-gray-200 text-gray-700 hover:text-orange-600 transition-opacity ${revealed ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+      {/* Tombol ☰ — toggle tampil/sembunyi sidebar. Sembunyi saat sidebar terbuka di desktop. */}
+      {!(open && !isMobile) && (
+        <button onClick={() => setOpen(true)} title="Tampilkan sidebar (Ctrl+B)"
+          className="fixed top-3 left-3 z-[60] p-2 rounded-xl bg-white shadow-md ring-1 ring-gray-200 text-gray-700 hover:text-orange-600 transition-colors">
           <Menu size={20} />
         </button>
       )}
 
-      {/* Mini-rail (mode mini, desktop) — selalu terlihat, push konten */}
-      {!isMobile && mode === 'mini' && (
-        <div className="fixed left-0 top-0 h-screen z-30"
-          onMouseEnter={() => { clearHide(); setRailHover(true) }}
-          onMouseLeave={() => scheduleHide()}>
-          <MiniRail onExpand={() => applyMode('full')} onNavigate={() => {}} />
-        </div>
+      {/* Backdrop (HP saat sidebar terbuka) */}
+      {isMobile && open && (
+        <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)} />
       )}
 
-      {/* Hamburger (mobile) */}
-      {isMobile && (
-        <button onClick={() => setMobileOpen(true)} className="fixed top-3 left-3 z-40 p-2 rounded-xl bg-white shadow-md ring-1 ring-gray-200 text-gray-700">
-          <Menu size={20} />
-        </button>
-      )}
-
-      {/* Backdrop (mobile drawer) */}
-      {isMobile && mobileOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px]" onClick={() => setMobileOpen(false)} />
-      )}
-
-      {/* Sidebar penuh — fixed overlay, transform animated */}
-      <div
-        className="fixed left-0 top-0 h-screen z-50 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)]"
-        style={{
-          transform: (isMobile ? mobileOpen : fullVisible) ? 'translateX(0)' : 'translateX(-100%)',
-          boxShadow: (isMobile ? mobileOpen : overlayShadow) ? '0 24px 50px -12px rgba(2,6,23,.45)' : 'none',
-        }}
-        onMouseEnter={() => !isMobile && clearHide()}
-        onMouseLeave={() => { if (!isMobile && mode !== 'full') scheduleHide() }}
-      >
-        <div className="relative h-full">
-          {isMobile && (
-            <button onClick={() => setMobileOpen(false)} className="absolute top-4 right-3 z-10 p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-wins-border">
-              <X size={16} />
-            </button>
-          )}
-          <Sidebar
-            pinned={mode === 'full'}
-            onTogglePin={isMobile ? undefined : () => applyMode(mode === 'full' ? 'auto' : 'full')}
-            onSetMini={isMobile ? undefined : () => applyMode('mini')}
-            onNavigate={() => setMobileOpen(false)}
-          />
-        </div>
+      {/* Sidebar — geser masuk/keluar */}
+      <div className="fixed left-0 top-0 h-screen z-50 transition-transform duration-300 ease-[cubic-bezier(.22,.61,.36,1)]"
+        style={{ transform: open ? 'translateX(0)' : 'translateX(-100%)', boxShadow: isMobile && open ? '0 24px 50px -12px rgba(2,6,23,.45)' : 'none' }}>
+        <Sidebar onClose={() => setOpen(false)} onNavigate={() => { if (isMobile) setOpen(false) }} />
       </div>
 
-      {/* Konten — push saat full (ml-60) atau mini (ml-60px) */}
+      {/* Konten — terdorong saat sidebar tampil di desktop */}
       <main className={`p-6 overflow-auto min-h-screen transition-[margin] duration-300 ease-out ${contentMl}`}>
         {children}
       </main>
