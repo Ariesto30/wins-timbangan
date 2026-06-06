@@ -3,6 +3,7 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, Cartes
 import { Shield, AlertTriangle, TrendingDown, Clock, Truck, Users, FileSearch, Activity, Hash, Zap, AlertOctagon, Settings, ChevronRight, ChevronDown, Copy, MapPin, Save, BarChart3, UserCheck, ExternalLink, X, Lightbulb } from 'lucide-react'
 import api, { fmt } from '../utils/api'
 import MonthRange from '../components/MonthRange'
+import AiPanel from '../components/AiPanel'
 
 const MONTHS = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des']
 const tt = { backgroundColor:'#fff', border:'1px solid #e5e7eb', borderRadius:8, color:'#111827', fontSize:12, boxShadow:'0 4px 12px rgba(0,0,0,.1)' }
@@ -34,6 +35,8 @@ export default function AuditForensik() {
           <MonthRange start={bulanStart} end={bulanEnd} onStart={setBulanStart} onEnd={setBulanEnd} />
         </div>
       </div>
+
+      <AiPanel endpoint="/insight/ai-audit" title="AI Audit Insight" subtitle="Narasi forensik · prioritas penyelidikan (indikator, bukan tuduhan)" />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">

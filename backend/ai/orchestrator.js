@@ -34,20 +34,21 @@ async function callClaude(model, prompt, maxTokens) {
   if (!key) throw new Error('NO_KEY');
   const r = await axios.post('https://api.anthropic.com/v1/messages', {
     model, max_tokens: maxTokens, messages: [{ role: 'user', content: prompt }],
-  }, { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, timeout: 25000 });
+  }, { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }, timeout: 90000 });
   const u = r.data?.usage || {};
   return { text: r.data?.content?.[0]?.text || '', inTok: u.input_tokens || 0, outTok: u.output_tokens || 0 };
 }
 
 /* getInsight: ambil insight (array {level,title,text}) dgn cache+router+budget.
    opts: { kind, model, buildPrompt(), ruleItems[], maxTokens?, force? } */
-async function getInsight({ kind, model, buildPrompt, ruleItems, maxTokens = 900, force = false }) {
+async function getInsight({ kind, model, buildPrompt, ruleItems, maxTokens = 900, force = false, cacheDate }) {
   const today = new Date().toISOString().slice(0, 10);
+  const ckey = cacheDate || today;   // cacheDate dipakai utk cache bulanan (mis. tgl-1 bulan)
   const fallback = note => ({ source: 'rule', items: ruleItems, note, generated_at: new Date().toISOString() });
 
-  // 1) Cache harian
+  // 1) Cache (harian / bulanan via cacheDate)
   if (!force) {
-    const c = await db.get(`SELECT payload FROM ai_cache WHERE kind=$1 AND tanggal=$2`, [kind, today]).catch(() => null);
+    const c = await db.get(`SELECT payload FROM ai_cache WHERE kind=$1 AND tanggal=$2`, [kind, ckey]).catch(() => null);
     if (c?.payload) return { ...c.payload, cached: true };
   }
   // 2) Tanpa key → rule
@@ -69,7 +70,7 @@ async function getInsight({ kind, model, buildPrompt, ruleItems, maxTokens = 900
     if (!Array.isArray(items) || !items.length) return fallback('Respons AI kosong — pakai rule-based.');
     const payload = { source: 'llm', model, items, cost_usd: c, generated_at: new Date().toISOString() };
     await db.run(`INSERT INTO ai_cache (kind, tanggal, payload, source) VALUES ($1,$2,$3,'llm')
-      ON CONFLICT (kind, tanggal) DO UPDATE SET payload=EXCLUDED.payload, created_at=NOW()`, [kind, today, JSON.stringify(payload)]);
+      ON CONFLICT (kind, tanggal) DO UPDATE SET payload=EXCLUDED.payload, created_at=NOW()`, [kind, ckey, JSON.stringify(payload)]);
     return payload;
   } catch (e) {
     return fallback('LLM gagal (' + (e.response?.status || e.message) + ') — pakai rule-based.');

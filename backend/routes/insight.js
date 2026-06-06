@@ -370,6 +370,63 @@ router.post('/ai-ask', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ═══════════ AI: AUDIT FORENSIK NARASI (Haiku) ═══════════ */
+async function auditSnap() {
+  const tot = await db.get(`SELECT COUNT(*)::int c FROM timbangan`).catch(() => ({ c: 0 }));
+  const seris = await db.all(`SELECT no_seri::bigint s FROM timbangan WHERE no_seri ~ '^[0-9]+$' ORDER BY 1`).catch(() => []);
+  let missing = 0, gaps = 0;
+  if (seris.length) {
+    const min = Number(seris[0].s), max = Number(seris[seris.length - 1].s), set = new Set(seris.map(r => Number(r.s)));
+    let inGap = false;
+    for (let i = min; i <= max; i++) { if (!set.has(i)) { missing++; if (!inGap) { gaps++; inGap = true; } } else inGap = false; }
+  }
+  const selisih = await db.get(`SELECT COUNT(*)::int c FROM timbangan WHERE berat_netto_wins>0 AND berat_netto_relasi>0 AND ABS(berat_netto_wins-berat_netto_relasi)/berat_netto_wins > 0.005`).catch(() => ({ c: 0 }));
+  const dup = await db.get(`SELECT COUNT(*)::int c FROM (SELECT no_seri_relasi FROM timbangan WHERE no_seri_relasi IS NOT NULL AND no_seri_relasi<>'' GROUP BY no_seri_relasi HAVING COUNT(*)>1) x`).catch(() => ({ c: 0 }));
+  return { total_trip: tot.c, seri_hilang: missing, jumlah_gap: gaps, selisih_diluar_toleransi: selisih.c, duplikat_seri_relasi: dup.c };
+}
+router.get('/ai-audit', async (req, res) => {
+  try {
+    const a = await auditSnap();
+    const rule = [
+      { level: a.seri_hilang > 0 ? 'sedang' : 'info', title: 'Sequence Gap', text: `${a.seri_hilang} no. seri hilang dalam ${a.jumlah_gap} gap (dari ${a.total_trip} trip). Telusuri arsip nota fisik.` },
+      { level: a.selisih_diluar_toleransi > 0 ? 'sedang' : 'info', title: 'Selisih Timbangan', text: `${a.selisih_diluar_toleransi} trip selisih netto WINS vs relasi >0,5%. Verifikasi penimbangan.` },
+      { level: a.duplikat_seri_relasi > 0 ? 'tinggi' : 'info', title: 'Duplikat Seri Relasi', text: `${a.duplikat_seri_relasi} no_seri_relasi muncul lebih dari sekali — potensi entri ganda.` },
+    ];
+    const result = await ai.getInsight({
+      kind: 'audit', model: ai.MODEL.HAIKU, ruleItems: rule, force: req.query.force === '1',
+      buildPrompt: () => `Anda auditor forensik data timbangan refinery. Ringkasan temuan (JSON):
+${JSON.stringify(a)}
+
+Beri 3-4 narasi forensik untuk Owner: prioritas penyelidikan, kemungkinan penyebab (belum diinput / manipulasi / error), langkah verifikasi. CATATAN: ini indikator statistik, bukan tuduhan. Bahasa Indonesia, ringkas.
+Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
+    });
+    res.json(result);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ═══════════ AI: REVIEW STRATEGIS BULANAN (Opus, cache bulanan) ═══════════ */
+router.get('/ai-strategic', async (req, res) => {
+  try {
+    const tanks = await tankState();
+    const ctx = { tank: tankSummary(tanks), produksi: await prodYield(), harga: await marketSnap(), keuangan: await paymentSnap(), audit: await auditSnap() };
+    const pay = ctx.keuangan;
+    const rule = [
+      { level: 'info', title: 'Ringkasan Strategis', text: `Posisi kas bersih ${rupM(pay.posisi_bersih)}, utilisasi tank ${ctx.tank.util_pct}%. Aktifkan AI untuk analisa skenario mendalam.` },
+    ];
+    const firstOfMonth = new Date(); firstOfMonth.setDate(1);
+    const result = await ai.getInsight({
+      kind: 'strategic', model: ai.MODEL.OPUS, ruleItems: rule, force: req.query.force === '1',
+      cacheDate: firstOfMonth.toISOString().slice(0, 10), maxTokens: 2000,
+      buildPrompt: () => `Anda Chief Strategy Advisor untuk Owner refinery kelapa sawit. Data komprehensif bulan ini (JSON):
+${JSON.stringify(ctx)}
+
+Buat REVIEW STRATEGIS BULANAN tingkat direksi: 5-6 poin yang menggabungkan operasi, pasar, keuangan, & integritas data. Fokus: arah strategis, alokasi modal kerja, manajemen risiko, peluang pertumbuhan margin, prioritas 30 hari ke depan. Analitis & berwawasan jauh. Bahasa Indonesia, angka spesifik (juta/M Rupiah).
+Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
+    });
+    res.json(result);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 /* GET /ai-usage — transparansi pemakaian & budget AI bulan ini */
 router.get('/ai-usage', async (req, res) => {
   try { res.json(await ai.usageSummary()); }
