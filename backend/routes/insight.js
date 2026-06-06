@@ -246,6 +246,130 @@ Jawab HANYA JSON array valid: [{"level":"tinggi|sedang|info","title":"...","text
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
+/* ═══════════ KONTEKS LINTAS MODUL (untuk AI) ═══════════ */
+const BELI = new Set(['CPO']);
+async function marketSnap() {
+  const kurs = await db.get(`SELECT nilai_idr FROM kurs WHERE mata_uang='USD' ORDER BY tanggal DESC LIMIT 1`).catch(() => null);
+  const out = [];
+  for (const p of ['CPO', 'RBDPO', 'Olein', 'Stearin', 'PFAD']) {
+    const series = await db.all(`SELECT tanggal, harga, mata_uang FROM harga_pasar WHERE produk=$1 AND sumber IN ('PORAM','KPBN/Dumai') AND periode='spot' ORDER BY tanggal DESC LIMIT 30`, [p]);
+    if (!series.length) continue;
+    const cur = series[0];
+    const d7 = series.find(s => (new Date(cur.tanggal) - new Date(s.tanggal)) / 86400000 >= 7);
+    out.push({ produk: p, harga: cur.harga, mata_uang: cur.mata_uang, chg7_pct: d7 && d7.harga ? +((cur.harga - d7.harga) / d7.harga * 100).toFixed(2) : 0 });
+  }
+  return { kurs_usd: kurs ? Number(kurs.nilai_idr) : 16000, harga: out };
+}
+async function paymentSnap() {
+  const rows = await db.all(`SELECT k.produk, k.nilai_kontrak, k.jatuh_tempo, COALESCE((SELECT SUM(jumlah) FROM pembayaran WHERE no_kontrak=k.no_kontrak),0) dibayar FROM kontrak k WHERE k.nilai_kontrak>0`);
+  const today = new Date(); let piut = 0, hut = 0, piutOd = 0, hutOd = 0;
+  rows.forEach(r => {
+    const sisa = Number(r.nilai_kontrak) - Number(r.dibayar); if (sisa <= 0.01) return;
+    const od = r.jatuh_tempo && new Date(r.jatuh_tempo) < today;
+    if (BELI.has(String(r.produk || '').toUpperCase())) { hut += sisa; if (od) hutOd += sisa; }
+    else { piut += sisa; if (od) piutOd += sisa; }
+  });
+  return { piutang: Math.round(piut), hutang: Math.round(hut), piutang_overdue: Math.round(piutOd), hutang_overdue: Math.round(hutOd), posisi_bersih: Math.round(piut - hut) };
+}
+function tankSummary(tanks) {
+  const stok = tanks.reduce((s, t) => s + t.stok, 0), kap = tanks.reduce((s, t) => s + (Number(t.kapasitas_mt) || 0), 0);
+  return { util_pct: kap ? +(stok / kap * 100).toFixed(1) : 0, total_stok: +stok.toFixed(1), penuh: tanks.filter(t => t.util >= 90).length, over: tanks.filter(t => t.util > 100).length };
+}
+const rupM = v => 'Rp ' + (v / 1e9).toFixed(2) + ' M';
+
+/* ═══════════ AI: OWNER DECISION INSIGHT (Sonnet, lintas modul) ═══════════ */
+router.get('/ai-owner', async (req, res) => {
+  try {
+    const tanks = await tankState();
+    const ts = tankSummary(tanks);
+    const py = await prodYield();
+    const market = await marketSnap();
+    const pay = await paymentSnap();
+    const ctx = {
+      tank: ts,
+      retensi_tinggi: tanks.filter(t => t.stok > 0 && t.retensi > 45).map(t => ({ nama: t.nama, produk: t.produk, hari: t.retensi })),
+      produksi: py ? { refining_yield_30h: py.last30.refining, refining_loss_30h: py.last30.refining_loss } : null,
+      harga: market, keuangan: pay,
+    };
+    const rule = [
+      { level: pay.posisi_bersih < 0 ? 'tinggi' : 'info', title: 'Posisi Kas', text: `Piutang ${rupM(pay.piutang)} vs hutang ${rupM(pay.hutang)} → bersih ${rupM(pay.posisi_bersih)}. ${pay.posisi_bersih < 0 ? 'Defisit — prioritaskan tagih piutang & atur tempo CPO.' : 'Surplus.'}` },
+      { level: ts.over ? 'tinggi' : 'sedang', title: 'Kondisi Stok', text: `Utilisasi tank ${ts.util_pct}%, ${ts.penuh} tangki ≥90%${ts.over ? `, ${ts.over} over-capacity` : ''}. ${py ? 'Refining yield ' + py.last30.refining + '%.' : ''}` },
+    ];
+    const result = await ai.getInsight({
+      kind: 'owner', model: ai.MODEL.SONNET, ruleItems: rule, force: req.query.force === '1', maxTokens: 1600,
+      buildPrompt: () => `Anda penasihat strategis Owner refinery kelapa sawit. Data lintas-modul hari ini (JSON):
+${JSON.stringify(ctx)}
+
+Beri 4-5 insight KEPUTUSAN tingkat Owner yang MENGGABUNGKAN stok + harga pasar + produksi + keuangan (piutang/hutang). Fokus: peluang margin, risiko likuiditas, timing jual/tahan, prioritas tindakan. Bahasa Indonesia, ringkas, angka spesifik (pakai juta/M Rupiah).
+Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
+    });
+    res.json(result);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ═══════════ AI: MARKET INTELLIGENCE (Sonnet) ═══════════ */
+router.get('/ai-market', async (req, res) => {
+  try {
+    const market = await marketSnap();
+    const tanks = await tankState();
+    const stokByProduk = {};
+    tanks.forEach(t => { const k = PALIAS[t.produk] || t.produk; stokByProduk[k] = (stokByProduk[k] || 0) + t.stok; });
+    const ctx = { ...market, stok_produk_mt: stokByProduk };
+    const rule = market.harga.map(h => ({
+      level: Math.abs(h.chg7_pct) > 2 ? 'sedang' : 'info',
+      title: `${h.produk} ${h.chg7_pct >= 0 ? 'naik' : 'turun'} ${Math.abs(h.chg7_pct)}%`,
+      text: `Harga ${h.produk} ${h.harga} ${h.mata_uang} (7 hari ${h.chg7_pct >= 0 ? '+' : ''}${h.chg7_pct}%). ${h.chg7_pct > 2 ? 'Momentum jual.' : h.chg7_pct < -2 ? 'Tahan/peluang beli.' : 'Stabil.'}`,
+    }));
+    const result = await ai.getInsight({
+      kind: 'market', model: ai.MODEL.SONNET, ruleItems: rule, force: req.query.force === '1',
+      buildPrompt: () => `Anda analis pasar minyak sawit. Data harga & stok hari ini (JSON):
+${JSON.stringify(ctx)}
+
+Beri 4-5 insight pasar untuk Owner: arah tren tiap produk, pengaruh kurs USD, timing jual/tahan dikaitkan dengan stok yang dimiliki, peluang margin. Bahasa Indonesia, ringkas, actionable.
+Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
+    });
+    res.json(result);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ═══════════ AI: PAYMENT & CASHFLOW RISK (Haiku) ═══════════ */
+router.get('/ai-payment', async (req, res) => {
+  try {
+    const pay = await paymentSnap();
+    const rule = [
+      { level: pay.hutang_overdue > 0 ? 'tinggi' : 'info', title: 'Hutang Jatuh Tempo', text: `Hutang CPO overdue ${rupM(pay.hutang_overdue)} dari total ${rupM(pay.hutang)}. Prioritaskan bayar/negosiasi tempo.` },
+      { level: pay.piutang_overdue > 0 ? 'sedang' : 'info', title: 'Piutang Menunggak', text: `Piutang overdue ${rupM(pay.piutang_overdue)} dari total ${rupM(pay.piutang)}. Percepat penagihan.` },
+      { level: pay.posisi_bersih < 0 ? 'tinggi' : 'info', title: 'Posisi Kas Bersih', text: `${rupM(pay.posisi_bersih)} ${pay.posisi_bersih < 0 ? '(defisit — siapkan modal kerja)' : '(surplus)'}.` },
+    ];
+    const result = await ai.getInsight({
+      kind: 'payment', model: ai.MODEL.HAIKU, ruleItems: rule, force: req.query.force === '1',
+      buildPrompt: () => `Anda analis keuangan refinery. Data arus kas hari ini (JSON, Rupiah):
+${JSON.stringify(pay)}
+
+Beri 3-4 insight risiko likuiditas & prediksi keterlambatan untuk Owner. Bahasa Indonesia, ringkas, angka dalam juta/M Rupiah, actionable.
+Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
+    });
+    res.json(result);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ═══════════ AI: TANYA WINS (Q&A lintas modul, Sonnet, tanpa cache) ═══════════ */
+router.post('/ai-ask', async (req, res) => {
+  try {
+    const question = (req.body?.q || '').toString().slice(0, 500);
+    if (!question.trim()) return res.status(400).json({ error: 'Pertanyaan kosong' });
+    const tanks = await tankState();
+    const context = {
+      tank: tankSummary(tanks),
+      tangki: tanks.map(t => ({ nama: t.nama, produk: t.produk, util: t.util, stok_mt: +t.stok.toFixed(1), retensi_hari: t.retensi })),
+      produksi: await prodYield(),
+      harga: await marketSnap(),
+      keuangan: await paymentSnap(),
+    };
+    res.json(await ai.ask({ question, context, model: ai.MODEL.SONNET }));
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
 /* GET /ai-usage — transparansi pemakaian & budget AI bulan ini */
 router.get('/ai-usage', async (req, res) => {
   try { res.json(await ai.usageSummary()); }

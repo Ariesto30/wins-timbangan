@@ -61,7 +61,11 @@ async function getInsight({ kind, model, buildPrompt, ruleItems, maxTokens = 900
     const { text, inTok, outTok } = await callClaude(model, buildPrompt(), maxTokens);
     const c = costOf(model, inTok, outTok);
     await db.run(`INSERT INTO ai_usage (tanggal, kind, model, in_tok, out_tok, cost_usd) VALUES ($1,$2,$3,$4,$5,$6)`, [today, kind, model, inTok, outTok, c]);
-    const items = JSON.parse(text.replace(/```json|```/g, '').trim());
+    // Ekstrak array JSON walau ada prosa di sekitarnya
+    let clean = text.replace(/```json|```/g, '').trim();
+    const a = clean.indexOf('['), b = clean.lastIndexOf(']');
+    if (a >= 0 && b > a) clean = clean.slice(a, b + 1);
+    const items = JSON.parse(clean);
     if (!Array.isArray(items) || !items.length) return fallback('Respons AI kosong — pakai rule-based.');
     const payload = { source: 'llm', model, items, cost_usd: c, generated_at: new Date().toISOString() };
     await db.run(`INSERT INTO ai_cache (kind, tanggal, payload, source) VALUES ($1,$2,$3,'llm')
@@ -84,4 +88,26 @@ async function usageSummary() {
   };
 }
 
-module.exports = { getInsight, usageSummary, MODEL, costOf };
+/* ask: tanya-jawab bebas (tanpa cache, tetap budget-guarded). */
+async function ask({ question, context, model = MODEL.SONNET, maxTokens = 700 }) {
+  if (!process.env.ANTHROPIC_API_KEY) return { answer: null, source: 'none', note: 'AI belum aktif — set ANTHROPIC_API_KEY.' };
+  const budget = budgetUsd();
+  if ((await monthCost()) >= budget) return { answer: null, source: 'none', note: `Budget AI bulan ini ($${budget}) tercapai.` };
+  try {
+    const prompt = `Anda asisten data untuk Owner refinery sawit "WINS". Jawab pertanyaan HANYA berdasar data berikut (JSON), Bahasa Indonesia, ringkas & angka spesifik. Bila data tak cukup, katakan jujur.
+
+DATA:
+${JSON.stringify(context)}
+
+PERTANYAAN: ${question}`;
+    const { text, inTok, outTok } = await callClaude(model, prompt, maxTokens);
+    const c = costOf(model, inTok, outTok);
+    const today = new Date().toISOString().slice(0, 10);
+    await db.run(`INSERT INTO ai_usage (tanggal, kind, model, in_tok, out_tok, cost_usd) VALUES ($1,'ask',$2,$3,$4,$5)`, [today, model, inTok, outTok, c]);
+    return { answer: text.trim(), source: 'llm', model, cost_usd: c };
+  } catch (e) {
+    return { answer: null, source: 'error', note: 'AI gagal: ' + (e.response?.status || e.message) };
+  }
+}
+
+module.exports = { getInsight, ask, usageSummary, MODEL, costOf };
