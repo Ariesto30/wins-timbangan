@@ -15,7 +15,7 @@ export default function AiPanel({ endpoint, title = 'AI Insight', subtitle }) {
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2"><Sparkles size={16} className="text-amber-300" /><div><div className="font-bold tracking-tight leading-tight">{title}</div>{subtitle && <div className="text-[10px] text-slate-400">{subtitle}</div>}</div></div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{ai?.source === 'llm' ? 'AI naratif' : 'ringkasan cepat'}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{ai?.source === 'llm' ? 'naratif' : 'ringkasan cepat'}</span>
           <button onClick={load} className="text-slate-300 hover:text-white"><RefreshCw size={13} className={loading ? 'animate-spin' : ''} /></button>
         </div>
       </div>
@@ -52,7 +52,7 @@ export function AiAsk() {
   }
   return (
     <div className="card">
-      <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-2"><MessageSquare size={15} className="text-indigo-600" /> Tanya WINS <span className="text-[10px] font-normal text-gray-400">· AI menjawab dari data Anda</span></h3>
+      <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-2"><MessageSquare size={15} className="text-indigo-600" /> Tanya WINS <span className="text-[10px] font-normal text-gray-400">· menjawab dari data Anda</span></h3>
       <div className="flex gap-2">
         <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === 'Enter' && ask()} placeholder="Tanya apa saja tentang stok, harga, kas, produksi…" className="input flex-1" />
         <button onClick={() => ask()} disabled={loading} className="btn-primary flex items-center gap-1.5"><Send size={14} /> {loading ? '...' : 'Tanya'}</button>
@@ -60,7 +60,7 @@ export function AiAsk() {
       <div className="flex flex-wrap gap-1.5 mt-2">
         {contoh.map(c => <button key={c} onClick={() => ask(c)} className="text-[11px] px-2 py-1 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">{c}</button>)}
       </div>
-      {loading && <div className="text-xs text-gray-400 mt-3">AI sedang menganalisa data…</div>}
+      {loading && <div className="text-xs text-gray-400 mt-3">Menganalisa data…</div>}
       {res && (
         <div className="mt-3 rounded-xl bg-indigo-50 ring-1 ring-indigo-100 p-3">
           {res.answer ? <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{res.answer}</div> : <div className="text-xs text-amber-600">{res.note}</div>}

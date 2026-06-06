@@ -95,7 +95,8 @@ async function ask({ question, context, model = MODEL.SONNET, maxTokens = 700 })
   const budget = budgetUsd();
   if ((await monthCost()) >= budget) return { answer: null, source: 'none', note: `Budget AI bulan ini ($${budget}) tercapai.` };
   try {
-    const prompt = `Anda asisten data untuk Owner refinery sawit "WINS". Jawab pertanyaan HANYA berdasar data berikut (JSON), Bahasa Indonesia, ringkas & angka spesifik. Bila data tak cukup, katakan jujur.
+    const prompt = `Anda asisten data untuk Owner refinery sawit "WINS". Jawab pertanyaan HANYA berdasar data berikut (JSON), Bahasa Indonesia, ringkas & angka spesifik. Bila data tak cukup, katakan jujur secara singkat.
+Gaya jawaban: paragraf/poin biasa, profesional. JANGAN pakai emoji, JANGAN pakai heading markdown (#/##), JANGAN menyebut diri sebagai "AI".
 
 DATA:
 ${JSON.stringify(context)}

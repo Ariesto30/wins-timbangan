@@ -189,7 +189,7 @@ function Financial({ f }) {
 function Strategic({ s }) {
   return (
     <div className="space-y-3">
-      <AiPanel endpoint="/insight/ai-strategic" title="Review Strategis Bulanan (AI)" subtitle="Analisa direksi mendalam · diperbarui bulanan" />
+      <AiPanel endpoint="/insight/ai-strategic" title="Review Strategis Bulanan" subtitle="Analisa direksi mendalam · diperbarui bulanan" />
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="card"><div className="text-xs text-gray-500">Utilisasi Tank Farm</div><div className={`text-2xl font-extrabold ${s.util_total > 85 ? 'text-red-600' : 'text-green-600'}`}>{s.util_total}%</div></div>
         <div className="card"><div className="text-xs text-gray-500">Tangki Hampir Penuh</div><div className="text-2xl font-extrabold text-orange-500">{s.tangki_penuh}</div></div>

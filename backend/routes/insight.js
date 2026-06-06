@@ -359,10 +359,14 @@ router.post('/ai-ask', async (req, res) => {
     const question = (req.body?.q || '').toString().slice(0, 500);
     if (!question.trim()) return res.status(400).json({ error: 'Pertanyaan kosong' });
     const tanks = await tankState();
+    const refinery_balance = await db.all(`SELECT periode_label, tgl_start, tgl_end, cpo_received, cpo_processed, cpo_stock, rbdpo, olein_gross, stearin_gross, pfad FROM refinery_balance ORDER BY tgl_start`).catch(() => []);
+    const produksi_bulanan = await db.all(`SELECT to_char(tanggal,'YYYY-MM') ym, ROUND(SUM(cpo_feed)::numeric,1) cpo_feed, ROUND(SUM(rbdpo)::numeric,1) rbdpo, ROUND(SUM(olein)::numeric,1) olein, ROUND(SUM(stearin)::numeric,1) stearin, ROUND(SUM(pfad)::numeric,1) pfad FROM production_log GROUP BY 1 ORDER BY 1`).catch(() => []);
     const context = {
       tank: tankSummary(tanks),
       tangki: tanks.map(t => ({ nama: t.nama, produk: t.produk, util: t.util, stok_mt: +t.stok.toFixed(1), retensi_hari: t.retensi })),
-      produksi: await prodYield(),
+      produksi_yield: await prodYield(),
+      produksi_bulanan,
+      refinery_balance,
       harga: await marketSnap(),
       keuangan: await paymentSnap(),
     };
