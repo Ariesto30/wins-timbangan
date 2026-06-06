@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Database, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle, MoveVertical, Pencil, AlertTriangle, Gauge, Layers, Droplets } from 'lucide-react'
+import { Database, Plus, X, Save, Trash2, ArrowDownCircle, ArrowUpCircle, MoveVertical, Pencil, AlertTriangle, Gauge, Layers, Droplets, Calendar, Clock, Bell, Sparkles, RefreshCw, Boxes } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import api from '../utils/api'
 
 const PRODUK = ['CPO', 'RBDPL', 'RBDPS', 'PFAD', 'Stearin', 'Olein', 'RBDPO', 'B-40', 'BE']
@@ -9,59 +10,205 @@ const fmt = v => Number(v || 0).toLocaleString('id-ID', { maximumFractionDigits:
 export default function TankInventory() {
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
-  const [editTank, setEditTank] = useState(null) // {id?,...} for tank form
-  const [moveTank, setMoveTank] = useState(null) // tank for movement panel
+  const [ai, setAi] = useState(null)
+  const [trend, setTrend] = useState(null)
+  const [editTank, setEditTank] = useState(null)
+  const [moveTank, setMoveTank] = useState(null)
 
   function load() {
     setErr(null)
     api.get('/tank').then(r => setData(r.data)).catch(e => setErr(e.response?.data?.error || e.message || 'Gagal memuat data tangki'))
+    api.get('/insight/ai-tank').then(r => setAi(r.data)).catch(() => {})
+    api.get('/tank/trend?days=7').then(r => setTrend(r.data)).catch(() => {})
   }
   useEffect(() => { load() }, [])
 
   if (err) return <LoadError msg={err} onRetry={load} />
   if (!data) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = data.summary
+  const now = new Date()
+  const notifs = buildNotifs(data.tanks)
 
   return (
     <div className="space-y-5">
-      {/* Header — industrial control bar */}
-      <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(120deg,#0f172a,#1e293b 55%,#0c4a6e)' }}>
-        <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '22px 22px' }} />
+      {/* HERO HEADER — navy gradient + grid + glow */}
+      <div className="relative overflow-hidden rounded-2xl p-5" style={{ background: 'linear-gradient(135deg,#0F172A,#0B3B66)' }}>
+        <div className="absolute inset-0 opacity-[0.08]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #fff 1px, transparent 0)', backgroundSize: '22px 22px' }} />
+        <div className="absolute -top-16 -right-10 w-72 h-72 rounded-full blur-3xl" style={{ background: 'radial-gradient(circle, rgba(59,130,246,.35), transparent 70%)' }} />
         <div className="relative flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center ring-1 ring-white/20" style={{ background: 'linear-gradient(135deg,#38bdf8,#0369a1)' }}>
               <Database size={22} className="text-white" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Tank Farm — Digital Twin</h1>
-              <p className="text-sm text-slate-300/80">Monitoring stok, utilisasi & retensi real-time</p>
+              <h1 className="text-2xl font-bold text-white tracking-tight">Tank Farm — Digital Twin</h1>
+              <p className="text-sm text-slate-300/80">Monitoring stok, utilisasi dan retensi secara real-time</p>
             </div>
           </div>
-          <button onClick={() => setEditTank({ nama: '', produk: '', kapasitas_mt: 0, kode: '', lokasi: '', no_urut: (data?.tanks?.length || 0) + 1 })} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 ring-1 ring-white/20 text-white text-sm font-semibold transition-colors backdrop-blur-sm"><Plus size={15} /> Tangki Baru</button>
-        </div>
-
-        {/* Summary glassmorphism strip */}
-        <div className="relative grid grid-cols-2 lg:grid-cols-5 gap-3 mt-5">
-          <GlassKpi icon={<Layers size={15} />} label="Jumlah Tangki" value={s.total_tank} />
-          <GlassKpi icon={<Gauge size={15} />} label="Total Kapasitas" value={`${fmt(s.total_kapasitas)}`} unit="MT" />
-          <GlassKpi icon={<Droplets size={15} />} label="Total Stok" value={`${fmt(s.total_stok)}`} unit="MT" accent="#38bdf8" />
-          <GlassKpi icon={<Gauge size={15} />} label="Utilisasi" value={`${s.util_pct}`} unit="%" accent={s.util_pct > 85 ? '#f87171' : '#34d399'} />
-          <GlassKpi icon={<AlertTriangle size={15} />} label="Hampir Penuh" value={s.penuh} accent={s.penuh > 0 ? '#fb923c' : '#34d399'} />
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 ring-1 ring-white/15 text-slate-100 text-xs font-semibold"><Calendar size={13} /> {now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
+            <span className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 ring-1 ring-white/15 text-slate-100 text-xs font-semibold"><Clock size={13} /> {now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB</span>
+            <span className="relative flex items-center justify-center w-9 h-9 rounded-lg bg-white/10 ring-1 ring-white/15 text-slate-100"><Bell size={15} />{notifs.length > 0 && <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">{notifs.length}</span>}</span>
+            <button onClick={() => setEditTank({ nama: '', produk: '', kapasitas_mt: 0, kode: '', lokasi: '', no_urut: (data?.tanks?.length || 0) + 1 })} className="flex items-center gap-2 px-4 py-2 rounded-xl text-white text-sm font-semibold transition-transform hover:scale-[1.02]" style={{ background: 'linear-gradient(135deg,#fb923c,#f59e0b)' }}><Plus size={15} /> Tangki Baru</button>
+          </div>
         </div>
       </div>
 
-      {data.akumulasi?.length > 0 && <AkumulasiPanel akumulasi={data.akumulasi} grand={data.grand} onSavedDensity={load} />}
+      {/* KPI ROW — kartu putih executive */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KpiCardW icon={<Layers size={18} />} label="Jumlah Tangki" value={s.total_tank} accent="#3B82F6" />
+        <KpiCardW icon={<Gauge size={18} />} label="Total Kapasitas" value={fmt(s.total_kapasitas)} unit="MT" accent="#64748B" />
+        <KpiCardW icon={<Droplets size={18} />} label="Total Stok" value={fmt(s.total_stok)} unit="MT" accent="#3B82F6" />
+        <KpiCardW icon={<Gauge size={18} />} label="Utilisasi" value={s.util_pct} unit="%" sub={`${s.util_pct}% dari kapasitas`} accent={s.util_pct > 85 ? '#EF4444' : '#10B981'} />
+        <KpiCardW icon={<AlertTriangle size={18} />} label="Hampir Penuh" value={s.penuh} sub="perlu perhatian" accent={s.penuh > 0 ? '#F59E0B' : '#10B981'} />
+      </div>
 
-      {data.tanks.length === 0 ? (
-        <div className="card text-center text-gray-400 py-12">Belum ada tangki. Klik "Tangki Baru" untuk menambah 14 tangki Anda.</div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {data.tanks.map(t => <TankCard key={t.id} t={t} onEdit={() => setEditTank(t)} onMove={() => setMoveTank(t)} />)}
+      {/* AKUMULASI + AI INSIGHT */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="xl:col-span-2">
+          {data.akumulasi?.length > 0 && <AkumulasiPanel akumulasi={data.akumulasi} grand={data.grand} onSavedDensity={load} />}
         </div>
-      )}
+        <div className="xl:col-span-1"><AiInsightPanel ai={ai} onRefresh={() => api.get('/insight/ai-tank').then(r => setAi(r.data))} /></div>
+      </div>
+
+      {/* STATUS & UTILISASI + RIGHT RAIL */}
+      <div>
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+          <h2 className="text-lg font-bold text-slate-800">Status & Utilisasi Tangki</h2>
+          <div className="flex items-center gap-3 text-[11px] text-slate-500 flex-wrap">
+            <Legend dot="#10B981" label="Normal (≤80%)" />
+            <Legend dot="#F59E0B" label="Penuh (80–95%)" />
+            <Legend dot="#EF4444" label="Over Capacity (>95%)" />
+            <Legend dot="#94A3B8" label="Tidak Aktif" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <div className="xl:col-span-2">
+            {data.tanks.length === 0 ? (
+              <div className="card text-center text-gray-400 py-12">Belum ada tangki. Klik "Tangki Baru".</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {data.tanks.map(t => <TankCard key={t.id} t={t} onEdit={() => setEditTank(t)} onMove={() => setMoveTank(t)} />)}
+              </div>
+            )}
+          </div>
+          <div className="xl:col-span-1 space-y-4">
+            <NotifPanel notifs={notifs} />
+            <TrendPanel trend={trend} />
+          </div>
+        </div>
+      </div>
 
       {editTank && <TankForm tank={editTank} onClose={() => setEditTank(null)} onSaved={() => { setEditTank(null); load() }} />}
       {moveTank && <MovementPanel tank={moveTank} onClose={() => setMoveTank(null)} onChanged={load} />}
+    </div>
+  )
+}
+
+/* ───────── KPI putih executive ───────── */
+function KpiCardW({ icon, label, value, unit, sub, accent = '#3B82F6' }) {
+  return (
+    <div className="card flex items-center gap-3">
+      <div className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: accent + '14', color: accent }}>{icon}</div>
+      <div className="min-w-0">
+        <div className="text-[11px] text-gray-400 truncate">{label}</div>
+        <div className="flex items-baseline gap-1"><span className="text-xl font-extrabold text-gray-900 tabular-nums">{value}</span>{unit && <span className="text-xs font-semibold text-gray-400">{unit}</span>}</div>
+        {sub && <div className="text-[10px] text-gray-400 truncate">{sub}</div>}
+      </div>
+    </div>
+  )
+}
+
+const Legend = ({ dot, label }) => <span className="inline-flex items-center gap-1.5"><span className="w-2 h-2 rounded-full" style={{ background: dot }} />{label}</span>
+
+/* Notifikasi diturunkan dari kondisi tangki */
+function buildNotifs(tanks) {
+  const out = []
+  tanks.forEach(t => {
+    const pct = t.util_pct
+    if (t.kapasitas_mt > 0 && pct > 100) out.push({ level: 'tinggi', nama: t.nama, msg: `Over Capacity ${pct}%`, when: t.last_update })
+    else if (t.kapasitas_mt > 0 && pct >= 90) out.push({ level: 'sedang', nama: t.nama, msg: `Hampir penuh ${pct}%`, when: t.last_update })
+    if (t.stok > 0 && t.hari_tersimpan != null && t.hari_tersimpan > 45) out.push({ level: 'sedang', nama: t.nama, msg: `Retensi ${t.hari_tersimpan} hari`, when: t.last_update })
+  })
+  return out.sort((a, b) => (a.level === 'tinggi' ? -1 : 1))
+}
+
+/* ───────── AI INSIGHT PANEL (gradient navy) ───────── */
+function AiInsightPanel({ ai, onRefresh }) {
+  const lvl = { tinggi: '#f87171', sedang: '#fbbf24', info: '#60a5fa' }
+  return (
+    <div className="rounded-2xl p-5 text-white h-full" style={{ background: 'linear-gradient(135deg,#0F172A,#312E81)', boxShadow: '0 10px 30px -10px rgba(49,46,129,.5)' }}>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2"><Sparkles size={16} className="text-amber-300" /><span className="font-bold tracking-tight">AI Insight</span></div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-slate-300">{ai?.source === 'llm' ? 'AI naratif' : 'ringkasan cepat'}</span>
+          {onRefresh && <button onClick={onRefresh} className="text-slate-300 hover:text-white"><RefreshCw size={13} /></button>}
+        </div>
+      </div>
+      {!ai ? <div className="text-xs text-slate-400 py-6 text-center">Memuat insight...</div> : (
+        <div className="space-y-2.5">
+          {ai.items.map((it, i) => (
+            <div key={i} className="rounded-xl bg-white/5 ring-1 ring-white/10 p-3">
+              <div className="flex items-center gap-2 mb-0.5">
+                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: lvl[it.level] || '#60a5fa' }} />
+                <span className="text-xs font-bold text-slate-100">{it.title}</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">{it.text}</p>
+            </div>
+          ))}
+          {ai.note && <p className="text-[10px] text-slate-500 pt-1">{ai.note}</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ───────── NOTIFIKASI & PERINGATAN ───────── */
+function NotifPanel({ notifs }) {
+  const c = { tinggi: { b: 'border-red-400', t: 'text-red-700', bg: 'bg-red-50' }, sedang: { b: 'border-amber-300', t: 'text-amber-700', bg: 'bg-amber-50' } }
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2"><Bell size={15} className="text-orange-500" /> Notifikasi & Peringatan</h3>
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">{notifs.length}</span>
+      </div>
+      {notifs.length === 0 ? <div className="text-center text-emerald-600 py-6 text-sm">Tidak ada peringatan</div> : (
+        <div className="space-y-2">
+          {notifs.slice(0, 8).map((n, i) => {
+            const s = c[n.level] || c.sedang
+            return (
+              <div key={i} className={`p-2.5 rounded-lg border-l-4 ${s.b} ${s.bg}`}>
+                <div className={`text-xs font-semibold ${s.t}`}>{n.nama}</div>
+                <div className="flex items-center justify-between"><span className="text-[11px] text-gray-500">{n.msg}</span>{n.when && <span className="text-[10px] text-gray-400">{String(n.when).slice(0, 10)}</span>}</div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/* ───────── TREN UTILISASI 7 HARI ───────── */
+function TrendPanel({ trend }) {
+  const series = trend?.series || []
+  return (
+    <div className="card">
+      <h3 className="text-sm font-bold text-gray-700 mb-1">Tren Utilisasi (7 Hari)</h3>
+      <p className="text-[11px] text-gray-400 mb-3">Utilisasi total tank farm · terisi otomatis tiap hari</p>
+      {series.length < 2 ? (
+        <div className="text-center text-gray-400 py-10 text-xs">Data tren terkumpul harian.<br />Saat ini {series.length} hari — chart aktif setelah ≥2 hari.</div>
+      ) : (
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={series} margin={{ left: -14, right: 8, top: 5 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+            <XAxis dataKey="tanggal" tick={{ fontSize: 10 }} tickFormatter={d => d?.slice(5)} />
+            <YAxis tick={{ fontSize: 10 }} domain={[0, 'auto']} />
+            <Tooltip formatter={v => v + '%'} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+            <Line type="monotone" dataKey="Total" stroke="#3B82F6" strokeWidth={2.5} dot={{ r: 3 }} />
+          </LineChart>
+        </ResponsiveContainer>
+      )}
     </div>
   )
 }
