@@ -420,6 +420,8 @@ router.post('/ai-narrate', async (req, res) => {
       buildPrompt: () => `Anda auditor forensik data timbangan refinery kelapa sawit. Berikut hasil analisis "${judul}" (JSON):
 ${JSON.stringify(data).slice(0, 8000)}
 
+PENTING — SATUAN: Ini data TIMBANGAN, bukan keuangan. Angka netto/berat/avg/tonase bersatuan KILOGRAM (kg) atau ton — JANGAN beri awalan "Rp" atau "$" pada angka berat, dan jangan menyebut nilai uang/rupiah sama sekali kecuali field memang eksplisit tentang harga/uang. Persentase tetap %. Bila ragu satuan, sebut "kg" atau tanpa satuan.
+
 Beri 3-4 narasi forensik untuk Owner: temuan utama, indikator (INI INDIKATOR STATISTIK, BUKAN TUDUHAN), prioritas penyelidikan, langkah verifikasi. Bahasa Indonesia, ringkas, sebut angka spesifik dari data.
 Jawab HANYA JSON array: [{"level":"tinggi|sedang|info","title":"...","text":"..."}].`,
     });
