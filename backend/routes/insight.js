@@ -85,13 +85,15 @@ router.get('/briefing', async (req, res) => {
       if (t.util > 100) risks.push({ level: 'tinggi', tank: t.nama, msg: `${t.nama} OVER CAPACITY (${t.util}%)`, hint: 'Segera keluarkan / hentikan inbound' });
       else if (t.util >= 90) risks.push({ level: 'tinggi', tank: t.nama, msg: `${t.nama} hampir penuh (${t.util}%)`, hint: 'Jadwalkan dispatch' });
       else if (t.util > 0 && t.util < 8) risks.push({ level: 'sedang', tank: t.nama, msg: `${t.nama} hampir kosong (${t.util}%)`, hint: 'Cek kebutuhan isi ulang' });
-      if (t.retensi != null && t.retensi > 45) risks.push({ level: 'sedang', tank: t.nama, msg: `${t.nama} retensi ${t.retensi} hari`, hint: 'Mutu berisiko turun — prioritaskan keluarkan' });
+      // Retensi hanya relevan untuk tangki yang ada isinya
+      if (t.stok > 0 && t.retensi != null && t.retensi > 45) risks.push({ level: 'sedang', tank: t.nama, msg: `${t.nama} retensi ${t.retensi} hari`, hint: 'Mutu berisiko turun, prioritaskan keluarkan' });
     });
 
-    // Rekomendasi (rule engine)
+    // Rekomendasi (rule engine) — hanya untuk tangki berisi
     const recs = [];
     tanks.forEach(t => {
-      if (t.util >= 90 && t.util <= 100) recs.push(`${t.nama} terisi ${t.util}% — jadwalkan dispatch agar tidak overflow.`);
+      if (t.stok <= 0) return; // tangki kosong: tak ada yang perlu direkomendasikan
+      if (t.util >= 90 && t.util <= 100) recs.push(`${t.nama} terisi ${t.util}%, jadwalkan dispatch agar tidak overflow.`);
       if (t.util > 0 && t.util < 12) recs.push(`${t.nama} hanya terpakai ${t.util}%. Pertimbangkan realokasi produk / konsolidasi.`);
       if (t.retensi != null && t.retensi > 60) recs.push(`${t.nama} sudah ${t.retensi} hari (retensi tinggi). Prioritaskan jual untuk hindari penurunan mutu.`);
     });
@@ -104,7 +106,7 @@ router.get('/briefing', async (req, res) => {
       if (l.refining > 0 && l.refining < 88) recs.push(`Refining yield 30 hari ${l.refining}% (di bawah ~90%). Cek kualitas CPO & setting proses.`);
       if (l.refining_loss > 2.5) recs.push(`Loss refining 30 hari ${l.refining_loss}% (tinggi). Investigasi susut proses.`);
       if (l.cpo_reject > 3) recs.push(`Reject CPO 30 hari ${l.cpo_reject}% (tinggi). Verifikasi mutu bahan baku masuk.`);
-      if (l.refining > o.refining + 1) recs.push(`Refining yield membaik (${o.refining}%→${l.refining}% dalam 30 hari terakhir). Pertahankan.`);
+      if (l.refining > o.refining + 1) recs.push(`Refining yield membaik dari ${o.refining}% menjadi ${l.refining}% dalam 30 hari terakhir. Pertahankan.`);
     }
 
     res.json({
