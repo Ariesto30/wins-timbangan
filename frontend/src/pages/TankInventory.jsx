@@ -305,25 +305,37 @@ function TankForm({ tank, onClose, onSaved }) {
 
 function MovementPanel({ tank, onClose, onChanged }) {
   const [moves, setMoves] = useState([])
-  const [form, setForm] = useState({ tanggal: new Date().toISOString().slice(0, 10), inbound: '', outbound: '', catatan: '' })
+  const blank = { tanggal: new Date().toISOString().slice(0, 10), inbound: '', outbound: '', catatan: '' }
+  const [form, setForm] = useState(blank)
+  const [editId, setEditId] = useState(null)   // null = mode tambah; angka = mode edit
   const [saving, setSaving] = useState(false)
   function load() { api.get(`/tank/${tank.id}/movements`).then(r => setMoves(r.data)) }
   useEffect(() => { load() }, [])
-  async function add() {
+  function startEdit(m) {
+    setEditId(m.id)
+    setForm({ tanggal: String(m.tanggal).slice(0, 10), inbound: m.inbound || '', outbound: m.outbound || '', catatan: m.catatan || '' })
+  }
+  function cancelEdit() { setEditId(null); setForm(blank) }
+  async function save() {
     if (!form.tanggal) return
     setSaving(true)
-    try { await api.post(`/tank/${tank.id}/movements`, form); setForm({ ...form, inbound: '', outbound: '', catatan: '' }); load(); onChanged() }
-    catch (e) { alert(e.response?.data?.error || 'Gagal') } finally { setSaving(false) }
+    try {
+      if (editId) await api.put(`/tank/movements/${editId}`, form)
+      else await api.post(`/tank/${tank.id}/movements`, form)
+      cancelEdit(); load(); onChanged()
+    } catch (e) { alert(e.response?.data?.error || 'Gagal') } finally { setSaving(false) }
   }
-  async function del(id) { if (!confirm('Hapus gerakan ini?')) return; await api.delete(`/tank/movements/${id}`); load(); onChanged() }
+  async function del(id) { if (!confirm('Hapus gerakan ini? Stok sesudahnya dihitung ulang otomatis.')) return; await api.delete(`/tank/movements/${id}`); if (editId === id) cancelEdit(); load(); onChanged() }
   return (
     <Modal title={`Pergerakan — ${tank.kode || tank.nama}`} onClose={onClose} wide>
-      <div className="bg-sky-50 border border-sky-200 rounded-xl p-3 mb-3 grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
+      <div className={`rounded-xl p-3 mb-3 grid grid-cols-2 md:grid-cols-6 gap-2 items-end border ${editId ? 'bg-amber-50 border-amber-300' : 'bg-sky-50 border-sky-200'}`}>
+        {editId && <div className="col-span-2 md:col-span-6 text-xs font-semibold text-amber-700 -mb-1">✏️ Mengedit pergerakan (opening/closing semua baris akan dihitung ulang otomatis)</div>}
         <Field label="Tanggal"><input type="date" value={form.tanggal} onChange={e => setForm({ ...form, tanggal: e.target.value })} className="input w-full" /></Field>
         <Field label="Masuk (MT)"><input type="number" step="any" value={form.inbound} onChange={e => setForm({ ...form, inbound: e.target.value })} className="input w-full" /></Field>
         <Field label="Keluar (MT)"><input type="number" step="any" value={form.outbound} onChange={e => setForm({ ...form, outbound: e.target.value })} className="input w-full" /></Field>
         <Field label="Catatan"><input value={form.catatan} onChange={e => setForm({ ...form, catatan: e.target.value })} className="input w-full" /></Field>
-        <button onClick={add} disabled={saving} className="btn-primary flex items-center justify-center gap-1"><Plus size={14} /> Tambah</button>
+        <button onClick={save} disabled={saving} className={`flex items-center justify-center gap-1 ${editId ? 'px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-sm font-semibold' : 'btn-primary'}`}>{editId ? <><Save size={14} /> Simpan</> : <><Plus size={14} /> Tambah</>}</button>
+        {editId && <button onClick={cancelEdit} className="px-3 py-2 rounded-lg bg-white ring-1 ring-gray-200 text-gray-600 text-sm font-semibold hover:bg-gray-50">Batal</button>}
       </div>
       <div className="overflow-x-auto max-h-80">
         <table className="w-full text-sm">
@@ -333,14 +345,17 @@ function MovementPanel({ tank, onClose, onChanged }) {
           <tbody>
             {moves.length === 0 && <tr><td colSpan={7} className="text-center text-gray-400 py-6">Belum ada pergerakan</td></tr>}
             {moves.map(m => (
-              <tr key={m.id} className="border-b border-gray-100">
+              <tr key={m.id} className={`border-b border-gray-100 ${editId === m.id ? 'bg-amber-50' : ''}`}>
                 <td className="table-cell text-xs">{m.tanggal}</td>
                 <td className="table-cell font-mono text-xs">{fmt(m.opening)}</td>
                 <td className="table-cell font-mono text-xs text-green-600"><ArrowDownCircle size={11} className="inline" /> {fmt(m.inbound)}</td>
                 <td className="table-cell font-mono text-xs text-orange-600"><ArrowUpCircle size={11} className="inline" /> {fmt(m.outbound)}</td>
                 <td className="table-cell font-mono text-xs font-bold">{fmt(m.closing)}</td>
                 <td className="table-cell text-xs text-gray-500">{m.catatan}</td>
-                <td className="table-cell"><button onClick={() => del(m.id)} className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button></td>
+                <td className="table-cell whitespace-nowrap">
+                  <button onClick={() => startEdit(m)} title="Edit" className="text-gray-300 hover:text-amber-500 mr-1.5"><Pencil size={12} /></button>
+                  <button onClick={() => del(m.id)} title="Hapus" className="text-gray-300 hover:text-red-500"><Trash2 size={12} /></button>
+                </td>
               </tr>
             ))}
           </tbody>

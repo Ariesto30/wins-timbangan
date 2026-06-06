@@ -105,26 +105,54 @@ router.get('/:id/movements', async (req, res) => {
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
-// POST pergerakan stok baru (opening auto = closing terakhir)
+// Hitung ulang rantai opening/closing satu tangki (urut tanggal lalu id).
+// Dipanggil setiap add/edit/delete agar stok selalu konsisten.
+async function recalcChain(tankId) {
+  const rows = await db.all(`SELECT id, inbound, outbound FROM tank_movement WHERE tank_id=$1 ORDER BY tanggal ASC, id ASC`, [tankId]);
+  let opening = 0;
+  for (const r of rows) {
+    const closing = opening + Number(r.inbound || 0) - Number(r.outbound || 0);
+    await db.run(`UPDATE tank_movement SET opening=$1, closing=$2 WHERE id=$3`, [opening, closing, r.id]);
+    opening = closing;
+  }
+}
+
+// POST pergerakan stok baru (opening/closing dihitung ulang via rantai)
 router.post('/:id/movements', requireRole('admin', 'manajer'), async (req, res) => {
   try {
     const { tanggal, inbound, outbound, catatan } = req.body;
     if (!tanggal) return res.status(400).json({ error: 'Tanggal wajib' });
-    const last = await db.get(`SELECT closing FROM tank_movement WHERE tank_id=$1 ORDER BY tanggal DESC, id DESC LIMIT 1`, [req.params.id]);
-    const opening = last ? Number(last.closing) : 0;
-    const inb = Number(inbound) || 0;
-    const outb = Number(outbound) || 0;
-    const closing = opening + inb - outb;
     const r = await db.get(`INSERT INTO tank_movement (tank_id, tanggal, opening, inbound, outbound, closing, catatan, created_by)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [req.params.id, tanggal, opening, inb, outb, closing, catatan || null, req.user.id]);
-    res.json(r);
+      VALUES ($1,$2,0,$3,$4,0,$5,$6) RETURNING *`,
+      [req.params.id, tanggal, Number(inbound) || 0, Number(outbound) || 0, catatan || null, req.user.id]);
+    await recalcChain(req.params.id);
+    const updated = await db.get(`SELECT * FROM tank_movement WHERE id=$1`, [r.id]);
+    res.json(updated);
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+// PUT edit pergerakan (revisi tanpa hapus) — opening/closing seluruh rantai di-recalc
+router.put('/movements/:mid', requireRole('admin', 'manajer'), async (req, res) => {
+  try {
+    const { tanggal, inbound, outbound, catatan } = req.body;
+    const mv = await db.get(`SELECT tank_id FROM tank_movement WHERE id=$1`, [req.params.mid]);
+    if (!mv) return res.status(404).json({ error: 'Pergerakan tidak ditemukan' });
+    if (!tanggal) return res.status(400).json({ error: 'Tanggal wajib' });
+    await db.run(`UPDATE tank_movement SET tanggal=$1, inbound=$2, outbound=$3, catatan=$4 WHERE id=$5`,
+      [tanggal, Number(inbound) || 0, Number(outbound) || 0, catatan || null, req.params.mid]);
+    await recalcChain(mv.tank_id);
+    const updated = await db.get(`SELECT * FROM tank_movement WHERE id=$1`, [req.params.mid]);
+    res.json(updated);
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
 router.delete('/movements/:mid', requireRole('admin', 'manajer'), async (req, res) => {
-  try { await db.run(`DELETE FROM tank_movement WHERE id=$1`, [req.params.mid]); res.json({ message: 'Terhapus' }); }
-  catch (e) { res.status(500).json({ error: e.message }); }
+  try {
+    const mv = await db.get(`SELECT tank_id FROM tank_movement WHERE id=$1`, [req.params.mid]);
+    await db.run(`DELETE FROM tank_movement WHERE id=$1`, [req.params.mid]);
+    if (mv) await recalcChain(mv.tank_id);
+    res.json({ message: 'Terhapus' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 /* POST /snapshot — rekam stok hari ini */
