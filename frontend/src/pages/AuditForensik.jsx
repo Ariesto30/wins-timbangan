@@ -1137,6 +1137,8 @@ function AdvancedTab({ tahun, bulanStart, bulanEnd }) {
         })}
       </div>
 
+      <AuditInsightPanel tab={sub} tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />
+
       {sub==='direction'  && <DirectionAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
       {sub==='truckclass' && <TruckClassAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} />}
       {sub==='round'      && <RoundNumberAudit tahun={tahun} bulanStart={bulanStart} bulanEnd={bulanEnd} onDrill={onDrill} />}

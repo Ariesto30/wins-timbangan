@@ -49,8 +49,22 @@ const AUDIT_MAP = {
   time: ['/audit/time-geo', 'Time & Geo'],
   distrib: ['/audit/distribution', 'Distribution'],
   recon: ['/audit/reconciliation', 'Reconciliation'],
+  // Forensik+ (sub-menu)
+  direction: ['/audit/direction', 'Konsistensi Arah'],
+  truckclass: ['/audit/truck-class', 'Konsistensi Truk'],
+  round: ['/audit/round-number', 'Round-Number Bias'],
+  sequence: ['/audit/sequence-gap', 'Sequence Gap'],
+  weekend: ['/audit/weekend-spike', 'Weekend Spike'],
+  velocity: ['/audit/velocity', 'Turnaround / Velocity'],
+  duration: ['/audit/duration-plausibility', 'Durasi & Jarak'],
+  tare: ['/audit/tare-profile', 'Profil Tare Truk'],
+  throughput: ['/audit/throughput', 'Throughput Monitor'],
+  sameday: ['/audit/same-day-pair', 'Same-Day Pair'],
+  benford2: ['/audit/benford-2nd', 'Benford Digit-2'],
+  drivertruck: ['/audit/driver-truck', 'Driver↔Truk'],
+  concentration: ['/audit/concentration', 'Konsentrasi'],
 }
-const NO_FILTER = new Set(['truck', 'recon'])
+const NO_FILTER = new Set(['truck', 'recon', 'sequence'])
 function trimData(d) {
   if (Array.isArray(d)) return d.slice(0, 8).map(trimData)
   if (d && typeof d === 'object') { const o = {}; for (const k in d) o[k] = trimData(d[k]); return o }
