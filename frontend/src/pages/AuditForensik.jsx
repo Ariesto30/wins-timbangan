@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment as RFrag } from 'react'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, ReferenceLine } from 'recharts'
-import { Shield, AlertTriangle, TrendingDown, Clock, Truck, Users, FileSearch, Activity, Hash, Zap, AlertOctagon, Settings, ChevronRight, ChevronDown, Copy, MapPin, Save, BarChart3, UserCheck, ExternalLink, X } from 'lucide-react'
+import { Shield, AlertTriangle, TrendingDown, Clock, Truck, Users, FileSearch, Activity, Hash, Zap, AlertOctagon, Settings, ChevronRight, ChevronDown, Copy, MapPin, Save, BarChart3, UserCheck, ExternalLink, X, Lightbulb } from 'lucide-react'
 import api, { fmt } from '../utils/api'
 import MonthRange from '../components/MonthRange'
 
@@ -1686,18 +1686,33 @@ function RoundNumberAudit({ tahun, bulanStart, bulanEnd, onDrill }) {
   )
 }
 
-/* A3 — Sequence Gap */
+/* A3 — Sequence Gap (dengan diagnosis + drill-down konteks) */
 function SequenceGapAudit() {
   const [d, setD] = useState(null)
+  const [open, setOpen] = useState(null)          // "from-to" yang sedang dibuka
+  const [ctx, setCtx] = useState({})              // cache konteks per gap
   useEffect(() => { api.get('/audit/sequence-gap').then(r => setD(r.data)) }, [])
   if (!d) return <div className="text-gray-500 py-10 text-center">Memuat...</div>
   const s = d.summary
+  const lvlBadge = l => l === 'tinggi' ? 'bg-red-100 text-red-700' : l === 'sedang' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+
+  function toggle(g) {
+    const key = `${g.from}-${g.to}`
+    if (open === key) { setOpen(null); return }
+    setOpen(key)
+    if (!ctx[key]) {
+      api.get('/audit/sequence-gap/context', { params: { from: g.from, to: g.to, window: 4 } })
+        .then(r => setCtx(c => ({ ...c, [key]: r.data })))
+        .catch(() => setCtx(c => ({ ...c, [key]: { error: true } })))
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="card bg-blue-50 border-blue-200 flex items-start gap-3">
         <Activity className="text-blue-600 flex-shrink-0 mt-0.5" size={20}/>
         <div className="text-xs text-blue-700">
-          <strong>Sequence Gap</strong> — No. Seri seharusnya berurutan tanpa loncatan. Nomor yang hilang bisa berarti: belum diinput, transaksi tunai tak tercatat, atau nota sengaja di-skip. <strong>Patut ditelusuri.</strong>
+          <strong>Sequence Gap</strong> — No. Seri seharusnya berurutan tanpa loncatan. Nomor hilang bisa berarti: belum diinput, transaksi tunai tak tercatat, atau nota di-skip. <strong>Klik baris untuk melihat transaksi nyata di sekitar gap & telusuri.</strong>
         </div>
       </div>
 
@@ -1708,18 +1723,85 @@ function SequenceGapAudit() {
         <KpiMini label="Jumlah Gap" value={s.gap_count} accent={s.gap_count > 0 ? 'orange' : 'green'} />
       </div>
 
-      <Section title={`Daftar Gap (${d.gaps.length})`} desc="Diurutkan dari gap terbesar — fokus audit pada rentang besar di tengah periode aktif">
+      <Section title={`Daftar Gap (${d.gaps.length})`} desc="Klik baris untuk drill-down konteks. Diurutkan dari gap terbesar.">
         {d.gaps.length === 0 ? <div className="text-center text-green-600 py-6 text-sm">✓ Tidak ada nomor seri yang hilang — sequence sempurna</div> :
-        <TableLite headers={['Dari','Sampai','Hilang','Tgl Sebelum','Relasi Sebelum','Tgl Sesudah','Relasi Sesudah']} rows={d.gaps.map(g => [
-          <span className="font-mono">{g.from}</span>,
-          <span className="font-mono">{g.to}</span>,
-          <span className={`font-bold ${g.count > 5 ? 'text-red-600' : 'text-orange-500'}`}>{g.count}</span>,
-          <span className="text-xs text-gray-500">{g.tgl_before || '–'}</span>,
-          <span className="text-xs">{g.relasi_before || '–'}</span>,
-          <span className="text-xs text-gray-500">{g.tgl_after || '–'}</span>,
-          <span className="text-xs">{g.relasi_after || '–'}</span>
-        ])} />}
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="border-b border-gray-200 bg-gray-50 text-xs">
+              {['', 'Dari', 'Sampai', 'Hilang', 'Tgl Sebelum', 'Relasi Sebelum', 'Tgl Sesudah', 'Relasi Sesudah', 'Dugaan'].map(h => <th key={h} className="px-2.5 py-2 text-left font-semibold text-gray-500">{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {d.gaps.map(g => {
+                const key = `${g.from}-${g.to}`, isOpen = open === key
+                return (
+                  <RFrag key={key}>
+                    <tr className="border-b border-gray-50 hover:bg-blue-50/40 cursor-pointer" onClick={() => toggle(g)}>
+                      <td className="px-2 py-1.5 text-gray-400">{isOpen ? '▾' : '▸'}</td>
+                      <td className="px-2.5 py-1.5 font-mono">{g.from}</td>
+                      <td className="px-2.5 py-1.5 font-mono">{g.to}</td>
+                      <td className={`px-2.5 py-1.5 font-bold ${g.count > 5 ? 'text-red-600' : 'text-orange-500'}`}>{g.count}</td>
+                      <td className="px-2.5 py-1.5 text-xs text-gray-500">{String(g.tgl_before || '–').slice(0, 10)}</td>
+                      <td className="px-2.5 py-1.5 text-xs">{g.relasi_before || '–'}</td>
+                      <td className="px-2.5 py-1.5 text-xs text-gray-500">{String(g.tgl_after || '–').slice(0, 10)}</td>
+                      <td className="px-2.5 py-1.5 text-xs">{g.relasi_after || '–'}</td>
+                      <td className="px-2.5 py-1.5"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${lvlBadge(g.level)}`}>{g.level === 'tinggi' ? 'Telusuri' : g.level === 'sedang' ? 'Perhatian' : 'Kemungkinan normal'}</span></td>
+                    </tr>
+                    {isOpen && (
+                      <tr><td colSpan={9} className="px-3 py-3 bg-slate-50">
+                        <GapContext g={g} data={ctx[key]} />
+                      </td></tr>
+                    )}
+                  </RFrag>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>}
       </Section>
+    </div>
+  )
+}
+
+/* Panel konteks: transaksi nyata di sekitar gap + diagnosis */
+function GapContext({ g, data }) {
+  if (!data) return <div className="text-xs text-gray-400 py-3 text-center">Memuat konteks...</div>
+  if (data.error) return <div className="text-xs text-red-500">Gagal memuat konteks.</div>
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start gap-2 text-xs">
+        <Lightbulb size={14} className="text-amber-500 flex-shrink-0 mt-0.5" />
+        <div><span className="font-bold text-gray-700">Dugaan penyebab: </span><span className="text-gray-600">{g.dugaan}</span></div>
+      </div>
+      <div className="text-[11px] text-gray-400">Transaksi nyata di sekitar seri yang hilang (window ±{data.window}). Baris merah = nomor hilang.</div>
+      <div className="overflow-x-auto rounded-lg ring-1 ring-slate-200 bg-white">
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-slate-200 bg-white text-[10px] uppercase text-slate-400">
+            {['Seri', 'Tanggal', 'Jam Masuk', 'No. Polisi', 'Relasi', 'Produk', 'No. Seri Relasi', 'DO', 'Netto (kg)', 'Penimbang'].map(h => <th key={h} className="px-2 py-1.5 text-left font-semibold">{h}</th>)}
+          </tr></thead>
+          <tbody>
+            {data.deret.map(r => r.hilang ? (
+              <tr key={r.seri} className="border-b border-red-50 bg-red-50/60">
+                <td className="px-2 py-1.5 font-mono font-bold text-red-600">{r.seri}</td>
+                <td className="px-2 py-1.5 text-red-500 font-semibold" colSpan={9}>⨯ NOMOR HILANG{r.dalam_gap ? '' : ' (di luar gap utama)'}</td>
+              </tr>
+            ) : (
+              <tr key={r.seri} className="border-b border-slate-50">
+                <td className="px-2 py-1.5 font-mono">{r.seri}</td>
+                <td className="px-2 py-1.5 text-slate-500">{String(r.tanggal || '').slice(0, 10)}</td>
+                <td className="px-2 py-1.5 text-slate-500">{r.jam_masuk || '–'}</td>
+                <td className="px-2 py-1.5 font-mono">{r.no_polisi || '–'}</td>
+                <td className="px-2 py-1.5">{r.relasi || '–'}</td>
+                <td className="px-2 py-1.5">{r.produk || '–'}</td>
+                <td className="px-2 py-1.5 font-mono text-slate-400">{r.no_seri_relasi || '–'}</td>
+                <td className="px-2 py-1.5 text-slate-400">{r.do_number || '–'}</td>
+                <td className="px-2 py-1.5 font-mono text-right">{r.netto != null ? Number(r.netto).toLocaleString('id-ID') : '–'}</td>
+                <td className="px-2 py-1.5 text-slate-400">{r.penimbang || '–'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="text-[10px] text-gray-400">💡 Bila relasi & tanggal di kedua sisi gap sama, kemungkinan besar nota tsb milik relasi itu di hari yang sama tapi belum diinput — cocokkan dengan arsip fisik nota.</div>
     </div>
   )
 }

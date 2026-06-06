@@ -1194,6 +1194,8 @@ router.get('/sequence-gap', async (req, res) => {
 
     const seriToRow = {};
     rows.forEach(r => { seriToRow[Number(r.seri)] = r; });
+    const isWeekend = d => { if (!d) return false; const x = new Date(d).getUTCDay(); return x === 0 || x === 6; };
+    const sameDay = (a, b) => a && b && String(a).slice(0, 10) === String(b).slice(0, 10);
     gaps.forEach(g => {
       const before = seriToRow[g.from - 1];
       const after = seriToRow[g.to + 1];
@@ -1201,6 +1203,16 @@ router.get('/sequence-gap', async (req, res) => {
       g.tgl_after = after?.tanggal_masuk || null;
       g.relasi_before = before?.relasi_nama || null;
       g.relasi_after = after?.relasi_nama || null;
+      // Diagnosis otomatis (dugaan penyebab) — bantu prioritas telusur
+      const sameRelasi = g.relasi_before && g.relasi_before === g.relasi_after;
+      const sameTgl = sameDay(g.tgl_before, g.tgl_after);
+      let dugaan, level;
+      if (sameRelasi && sameTgl) { dugaan = 'Relasi & tanggal sama di kedua sisi → kemungkinan besar nota BELUM DIINPUT. Cek arsip fisik.'; level = 'tinggi'; }
+      else if (sameTgl) { dugaan = 'Tanggal sama, relasi beda → nota antar-relasi mungkin terlewat input.'; level = 'sedang'; }
+      else if (isWeekend(g.tgl_before) || isWeekend(g.tgl_after)) { dugaan = 'Berdekatan akhir pekan → mungkin libur (normal).'; level = 'rendah'; }
+      else { dugaan = 'Beda hari → bisa normal (tak ada transaksi) atau nota hari kosong terlewat.'; level = 'rendah'; }
+      if (g.count >= 3) { level = 'tinggi'; dugaan = `Gap besar (${g.count} nota). ` + dugaan; }
+      g.dugaan = dugaan; g.level = level;
     });
 
     const totalMissing = gaps.reduce((s, g) => s + g.count, 0);
@@ -1211,6 +1223,35 @@ router.get('/sequence-gap', async (req, res) => {
     };
 
     res.json({ gaps: gaps.sort((a, b) => b.count - a.count).slice(0, 100), summary });
+  } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
+});
+
+/* ─── A3b. KONTEKS GAP — transaksi nyata di sekitar nomor seri yang hilang ─── */
+router.get('/sequence-gap/context', async (req, res) => {
+  try {
+    const from = parseInt(req.query.from), to = parseInt(req.query.to);
+    if (isNaN(from) || isNaN(to)) return res.status(400).json({ error: 'from & to wajib angka' });
+    const win = Math.min(parseInt(req.query.window) || 4, 20);
+    const lo = from - win, hi = to + win;
+    // ambil transaksi nyata dalam jendela seri (lo..hi)
+    const rows = await db.all(`
+      SELECT id, no_seri::bigint as seri, no_seri_relasi, tanggal_masuk, jam_masuk, jam_keluar,
+        no_polisi, relasi_nama, produk, do_number, no_kontrak, berat_netto_wins, penimbang
+      FROM timbangan
+      WHERE no_seri ~ '^[0-9]+$' AND no_seri::bigint BETWEEN $1 AND $2
+      ORDER BY no_seri::bigint`, [lo, hi]);
+    const present = new Set(rows.map(r => Number(r.seri)));
+    // susun deret lengkap lo..hi, tandai yang hilang
+    const deret = [];
+    for (let s = lo; s <= hi; s++) {
+      const r = rows.find(x => Number(x.seri) === s);
+      deret.push(r
+        ? { seri: s, hilang: false, no_seri_relasi: r.no_seri_relasi, tanggal: r.tanggal_masuk, jam_masuk: r.jam_masuk, jam_keluar: r.jam_keluar, no_polisi: r.no_polisi, relasi: r.relasi_nama, produk: r.produk, do_number: r.do_number, no_kontrak: r.no_kontrak, netto: r.berat_netto_wins, penimbang: r.penimbang, id: r.id }
+        : { seri: s, hilang: true, dalam_gap: s >= from && s <= to });
+    }
+    // cek kontinuitas no_seri_relasi (seri customer) di sekitar gap → bukti kuat
+    const relSeris = rows.map(r => r.no_seri_relasi).filter(Boolean);
+    res.json({ from, to, window: win, deret, hint_relasi_seri: relSeris });
   } catch (e) { console.error(e); res.status(500).json({ error: e.message }); }
 });
 
